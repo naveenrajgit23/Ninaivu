@@ -11,11 +11,11 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 console.log('[Ninaivu] Supabase URL present:', !!supabaseUrl, 'length:', supabaseUrl.length);
 console.log('[Ninaivu] Supabase Key present:', !!supabaseAnonKey, 'length:', supabaseAnonKey.length);
 
-let supabaseInstance: SupabaseClient | null = null;
+let _supabase: SupabaseClient | null = null;
 
 if (supabaseUrl && supabaseAnonKey) {
   try {
-    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
+    _supabase = createClient(supabaseUrl, supabaseAnonKey);
     console.log('[Ninaivu] Supabase client created successfully');
   } catch (err) {
     console.error('[Ninaivu] Failed to create Supabase client:', err);
@@ -24,5 +24,23 @@ if (supabaseUrl && supabaseAnonKey) {
   console.warn('[Ninaivu] Supabase not configured — running in demo mode');
 }
 
-export const supabase = supabaseInstance;
-export const isSupabaseConfigured = !!supabase;
+export const isSupabaseConfigured = !!_supabase;
+
+/**
+ * Returns the Supabase client or null.
+ * Use getSupabase() when you need a non-null client after checking isSupabaseConfigured.
+ */
+export function getSupabase(): SupabaseClient | null {
+  return _supabase;
+}
+
+/**
+ * Returns the Supabase client, guaranteed non-null.
+ * Only call after confirming isSupabaseConfigured is true.
+ */
+export function requireSupabase(): SupabaseClient {
+  if (!_supabase) {
+    throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+  }
+  return _supabase;
+}

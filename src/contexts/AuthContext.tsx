@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { supabase, isSupabaseConfigured } from '../services/supabase';
+import { getSupabase, requireSupabase, isSupabaseConfigured } from '../services/supabase';
 import type { User } from '../types';
 
 interface AuthContextType {
@@ -25,13 +25,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (!supabase) {
+    const sb = getSupabase();
+    if (!sb) {
       setLoading(false);
       return;
     }
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    sb.auth.getSession().then(({ data: { session } }) => {
       if (session) fetchProfile(session.user.id);
       else setLoading(false);
     }).catch((err) => {
@@ -40,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
       if (session) fetchProfile(session.user.id);
       else {
         setUser(null);
@@ -52,9 +53,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [isDemo]);
 
   const fetchProfile = async (userId: string) => {
-    if (!supabase) return;
     try {
-      const { data, error } = await supabase
+      const db = requireSupabase();
+      const { data, error } = await db
         .from('users')
         .select('*')
         .eq('id', userId)
@@ -71,10 +72,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (username: string, pass: string) => {
     if (isDemo) return { error: 'Auth disabled in demo mode' };
-    if (!supabase) return { error: 'Supabase is not configured. Check environment variables.' };
     try {
+      const db = requireSupabase();
       const email = `${username.toLowerCase().trim()}@ninaivu.local`;
-      const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+      const { error } = await db.auth.signInWithPassword({ email, password: pass });
       return { error: error?.message || null };
     } catch (err: unknown) {
       console.error('[Ninaivu] Sign-in network error:', err);
@@ -88,10 +89,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (username: string, pass: string, name: string) => {
     if (isDemo) return { error: 'Auth disabled in demo mode' };
-    if (!supabase) return { error: 'Supabase is not configured. Check environment variables.' };
     try {
+      const db = requireSupabase();
       const email = `${username.toLowerCase().trim()}@ninaivu.local`;
-      const { error } = await supabase.auth.signUp({
+      const { error } = await db.auth.signUp({
         email, password: pass,
         options: { data: { username: username.toLowerCase().trim(), full_name: name } }
       });
@@ -108,8 +109,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     if (isDemo) return;
-    if (!supabase) return;
-    await supabase.auth.signOut();
+    const sb = getSupabase();
+    if (!sb) return;
+    await sb.auth.signOut();
   };
 
   const updateProfile = async (data: Partial<User>) => {
@@ -118,9 +120,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (!user) return;
-    if (!supabase) return;
-    const { error } = await supabase.from('users').update(data).eq('id', user.id);
-    if (!error) setUser({ ...user, ...data });
+    try {
+      const db = requireSupabase();
+      const { error } = await db.from('users').update(data).eq('id', user.id);
+      if (!error) setUser({ ...user, ...data });
+    } catch (err) {
+      console.error('[Ninaivu] Failed to update profile:', err);
+    }
   };
 
   return (
