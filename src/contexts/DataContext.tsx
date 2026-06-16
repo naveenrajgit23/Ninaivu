@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from 'react';
-import { requireSupabase, isSupabaseConfigured } from '../services/supabase';
+import { supabase } from '../services/supabase';
 import { useAuth } from './AuthContext';
 import { generateId } from '../utils/helpers';
 import type { MemoryItem, Subject, Note, Exam, StudySession, Expense, MoneyTracker, Investment, Goal, Task, Idea } from '../types';
@@ -65,13 +65,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadSupabaseData = useCallback(async () => {
-    if (!user || !isSupabaseConfigured) return;
-    const db = requireSupabase();
+    if (!user || !supabase) return;
     setLoading(true);
 
     const fetches = Object.keys(INITIAL_STORE).map(async (key) => {
       const tableName = TABLE_MAP[key as TableName];
-      const { data } = await db.from(tableName).select('*').order('created_at', { ascending: false });
+      const { data } = await supabase!.from(tableName).select('*').order('created_at', { ascending: false });
       return { [key]: data || [] };
     });
 
@@ -110,9 +109,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return newItem;
     }
 
-    if (!user || !isSupabaseConfigured) return null;
-    const db = requireSupabase();
-    const { data, error } = await db.from(TABLE_MAP[table]).insert([{ ...item, user_id: user.id }]).select().single();
+    if (!user || !supabase) return null;
+    const { data, error } = await supabase!.from(TABLE_MAP[table]).insert([{ ...item, user_id: user.id }]).select().single();
     if (error) throw error;
     
     setStore((prev) => ({ ...prev, [table]: [data, ...prev[table]] }));
@@ -131,9 +129,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (!isSupabaseConfigured) return;
-    const db = requireSupabase();
-    const { error } = await db.from(TABLE_MAP[table]).update(updates).eq('id', id);
+    if (!supabase) return;
+    const { error } = await supabase!.from(TABLE_MAP[table]).update(updates).eq('id', id);
     if (error) throw error;
 
     setStore((prev) => {
@@ -153,9 +150,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (!isSupabaseConfigured) return;
-    const db = requireSupabase();
-    const { error } = await db.from(TABLE_MAP[table]).delete().eq('id', id);
+    if (!supabase) return;
+    const { error } = await supabase!.from(TABLE_MAP[table]).delete().eq('id', id);
     if (error) throw error;
 
     setStore((prev) => {
