@@ -66,11 +66,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const loadSupabaseData = useCallback(async () => {
     if (!user || !supabase) return;
+    const client = supabase;
     setLoading(true);
 
     const fetches = Object.keys(INITIAL_STORE).map(async (key) => {
       const tableName = TABLE_MAP[key as TableName];
-      const { data } = await supabase.from(tableName).select('*').order('created_at', { ascending: false });
+      const { data } = await client.from(tableName).select('*').order('created_at', { ascending: false });
       return { [key]: data || [] };
     });
 
