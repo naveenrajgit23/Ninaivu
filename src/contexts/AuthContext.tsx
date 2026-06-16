@@ -25,14 +25,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
     // Get initial session
-    supabase!.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) fetchProfile(session.user.id);
       else setLoading(false);
+    }).catch((err) => {
+      console.error('[Ninaivu] Failed to get session:', err);
+      setLoading(false);
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase!.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) fetchProfile(session.user.id);
       else {
         setUser(null);
@@ -44,8 +52,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [isDemo]);
 
   const fetchProfile = async (userId: string) => {
+    if (!supabase) return;
     try {
-      const { data, error } = await supabase!
+      const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
@@ -62,24 +71,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (username: string, pass: string) => {
     if (isDemo) return { error: 'Auth disabled in demo mode' };
-    const email = `${username.toLowerCase().trim()}@ninaivu.local`;
-    const { error } = await supabase!.auth.signInWithPassword({ email, password: pass });
-    return { error: error?.message || null };
+    if (!supabase) return { error: 'Supabase is not configured. Check environment variables.' };
+    try {
+      const email = `${username.toLowerCase().trim()}@ninaivu.local`;
+      const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+      return { error: error?.message || null };
+    } catch (err: unknown) {
+      console.error('[Ninaivu] Sign-in network error:', err);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
+        return { error: 'Cannot reach Supabase. Please check your internet connection and Supabase configuration.' };
+      }
+      return { error: message };
+    }
   };
 
   const signUp = async (username: string, pass: string, name: string) => {
     if (isDemo) return { error: 'Auth disabled in demo mode' };
-    const email = `${username.toLowerCase().trim()}@ninaivu.local`;
-    const { error } = await supabase!.auth.signUp({
-      email, password: pass,
-      options: { data: { username: username.toLowerCase().trim(), full_name: name } }
-    });
-    return { error: error?.message || null };
+    if (!supabase) return { error: 'Supabase is not configured. Check environment variables.' };
+    try {
+      const email = `${username.toLowerCase().trim()}@ninaivu.local`;
+      const { error } = await supabase.auth.signUp({
+        email, password: pass,
+        options: { data: { username: username.toLowerCase().trim(), full_name: name } }
+      });
+      return { error: error?.message || null };
+    } catch (err: unknown) {
+      console.error('[Ninaivu] Sign-up network error:', err);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
+        return { error: 'Cannot reach Supabase. Please check your internet connection and Supabase configuration.' };
+      }
+      return { error: message };
+    }
   };
 
   const signOut = async () => {
     if (isDemo) return;
-    await supabase!.auth.signOut();
+    if (!supabase) return;
+    await supabase.auth.signOut();
   };
 
   const updateProfile = async (data: Partial<User>) => {
@@ -88,7 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (!user) return;
-    const { error } = await supabase!.from('users').update(data).eq('id', user.id);
+    if (!supabase) return;
+    const { error } = await supabase.from('users').update(data).eq('id', user.id);
     if (!error) setUser({ ...user, ...data });
   };
 

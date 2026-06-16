@@ -70,7 +70,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     const fetches = Object.keys(INITIAL_STORE).map(async (key) => {
       const tableName = TABLE_MAP[key as TableName];
-      const { data } = await supabase!.from(tableName).select('*').order('created_at', { ascending: false });
+      const { data } = await supabase.from(tableName).select('*').order('created_at', { ascending: false });
       return { [key]: data || [] };
     });
 
@@ -110,7 +110,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     if (!user || !supabase) return null;
-    const { data, error } = await supabase!.from(TABLE_MAP[table]).insert([{ ...item, user_id: user.id }]).select().single();
+    const { data, error } = await supabase.from(TABLE_MAP[table]).insert([{ ...item, user_id: user.id }]).select().single();
     if (error) throw error;
     
     setStore((prev) => ({ ...prev, [table]: [data, ...prev[table]] }));
@@ -130,7 +130,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     if (!supabase) return;
-    const { error } = await supabase!.from(TABLE_MAP[table]).update(updates).eq('id', id);
+    const { error } = await supabase.from(TABLE_MAP[table]).update(updates).eq('id', id);
     if (error) throw error;
 
     setStore((prev) => {
@@ -151,7 +151,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     if (!supabase) return;
-    const { error } = await supabase!.from(TABLE_MAP[table]).delete().eq('id', id);
+    const { error } = await supabase.from(TABLE_MAP[table]).delete().eq('id', id);
     if (error) throw error;
 
     setStore((prev) => {
