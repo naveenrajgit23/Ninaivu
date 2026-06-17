@@ -139,10 +139,37 @@ export interface ToastMessage {
 
 export type SearchResult = {
   id: string;
-  type: 'memory' | 'note' | 'subject' | 'expense' | 'task' | 'goal' | 'idea';
+  type: 'memory' | 'note' | 'subject' | 'expense' | 'task' | 'goal' | 'idea' | 'habit';
   title: string;
   subtitle: string;
   path: string;
 };
 
 export type TimerStatus = 'idle' | 'running' | 'paused';
+
+export type HabitFrequency = 'daily' | 'weekly' | 'monthly';
+
+export interface Habit {
+  id: string;
+  user_id?: string;
+  name: string;
+  description: string;
+  category: string;
+  icon: string;
+  color: string;
+  frequency: HabitFrequency;
+  target_count: number;
+  start_date: string;
+  reminder_time: string | null;
+  goal_id: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface HabitCompletion {
+  id: string;
+  user_id?: string;
+  habit_id: string;
+  completed_at: string;
+}
+

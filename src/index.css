@@ -965,14 +965,18 @@ input, select, textarea {
 .grid-2 { grid-template-columns: repeat(2, 1fr); }
 .grid-3 { grid-template-columns: repeat(3, 1fr); }
 .grid-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-7 { grid-template-columns: repeat(7, 1fr); }
+.grid-col-2 { grid-column: span 2; }
 
 @media (max-width: 1024px) {
   .grid-4 { grid-template-columns: repeat(2, 1fr); }
   .grid-3 { grid-template-columns: repeat(2, 1fr); }
+  .grid-col-2 { grid-column: span 2; }
 }
 
 @media (max-width: 640px) {
   .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
+  .grid-col-2 { grid-column: span 1; }
 }
 
 .mb-1 { margin-bottom: var(--space-1); }

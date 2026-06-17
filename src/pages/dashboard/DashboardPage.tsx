@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router';
 import {
   CheckSquare, Clock, GraduationCap, AlertCircle,
   Plus, Wallet, StickyNote, Lightbulb, TrendingUp,
-  ArrowRight, Calendar
+  ArrowRight, Calendar, Flame, Check
 } from 'lucide-react';
 import TopBar from '../../components/layout/TopBar';
 import Modal from '../../components/ui/Modal';
@@ -15,10 +15,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { useToast } from '../../contexts/ToastContext';
 import { getGreeting, formatDate, formatCurrency, isToday, isWithinDays } from '../../utils/helpers';
+import { calculateHabitStats, getLocalDateString, getStartOfWeekDateString, getStartOfMonthDateString } from '../../utils/habitHelpers';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { tasks, exams, expenses, goals } = useData();
+  const { tasks, exams, expenses, goals, habits, habitCompletions, addItem, deleteItem } = useData();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -34,8 +35,6 @@ export default function DashboardPage() {
   const [quickNote, setQuickNote] = useState({ title: '', content: '' });
   const [quickIdea, setQuickIdea] = useState({ title: '', category: 'app' });
 
-  const { addItem } = useData();
-
   // Derived data
   const todayTasks = tasks.filter((t) => t.due_date && isToday(t.due_date) && t.status !== 'completed');
   const pendingTasks = tasks.filter((t) => t.status === 'pending');
@@ -48,6 +47,53 @@ export default function DashboardPage() {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     })
     .reduce((sum, e) => sum + Number(e.amount), 0);
+
+  // Habits derived data & logic
+  const dueTodayHabits = habits; // Show all habits
+  const habitsCalculated = dueTodayHabits.map((habit) => {
+    const stats = calculateHabitStats(habit, habitCompletions);
+    return { habit, stats };
+  });
+  
+  const habitsCompletedCount = habitsCalculated.filter((h) => h.stats.isCompleted).length;
+  const habitsProgress = dueTodayHabits.length > 0 
+    ? Math.round((habitsCompletedCount / dueTodayHabits.length) * 100) 
+    : 0;
+
+  const handleToggleHabit = async (habitId: string) => {
+    const completions = habitCompletions.filter((c) => c.habit_id === habitId);
+    const habit = habits.find((h) => h.id === habitId);
+    if (!habit) return;
+
+    const stats = calculateHabitStats(habit, habitCompletions);
+    
+    if (stats.isCompleted) {
+      let completionsToDelete: any[] = [];
+      const todayStr = getLocalDateString(new Date());
+      
+      if (habit.frequency === 'daily') {
+        completionsToDelete = completions.filter((c) => getLocalDateString(new Date(c.completed_at)) === todayStr);
+      } else if (habit.frequency === 'weekly') {
+        const currentWeekStr = getStartOfWeekDateString(new Date());
+        completionsToDelete = completions.filter((c) => getStartOfWeekDateString(new Date(c.completed_at)) === currentWeekStr);
+      } else {
+        const currentMonthStr = getStartOfMonthDateString(new Date());
+        completionsToDelete = completions.filter((c) => getStartOfMonthDateString(new Date(c.completed_at)) === currentMonthStr);
+      }
+
+      if (completionsToDelete.length > 0) {
+        const latest = completionsToDelete.sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime())[0];
+        await deleteItem('habitCompletions', latest.id);
+        showToast('Habit progress undone!', 'info');
+      }
+    } else {
+      await addItem('habitCompletions', {
+        habit_id: habitId,
+        completed_at: new Date().toISOString()
+      });
+      showToast('Habit progress updated!', 'success');
+    }
+  };
 
   // Quick action handlers
   const handleAddQuickTask = async () => {
@@ -244,6 +290,92 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </section>
+
+        {/* Today's Habits */}
+        <section className="animate-fadeInUp stagger-3" style={{ marginBottom: 'var(--space-6)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold font-heading">Today's Habits</h2>
+            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/habits')}>
+              View All <ArrowRight size={16} />
+            </button>
+          </div>
+
+          {dueTodayHabits.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
+              <Flame size={32} style={{ color: 'var(--text-muted)', margin: '0 auto var(--space-3)' }} />
+              <p className="text-secondary text-sm">No habits active for today. Go to the Habits page to create one!</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <div className="card" style={{ padding: 'var(--space-3) var(--space-4)', marginBottom: 'var(--space-2)' }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold">{habitsCompletedCount} of {dueTodayHabits.length} completed ({habitsProgress}%)</span>
+                  <div className="progress" style={{ width: '150px', height: '8px' }}>
+                    <div className="progress-bar" style={{ width: `${habitsProgress}%`, background: 'var(--color-success)' }} />
+                  </div>
+                </div>
+              </div>
+
+              {dueTodayHabits.map((habit) => {
+                const stats = calculateHabitStats(habit, habitCompletions);
+                
+                // Get completions for current period
+                let currentPeriodCount = 0;
+                const todayStr = getLocalDateString(new Date());
+                const completions = habitCompletions.filter((c) => c.habit_id === habit.id);
+                if (habit.frequency === 'daily') {
+                  currentPeriodCount = completions.filter((c) => getLocalDateString(new Date(c.completed_at)) === todayStr).length;
+                } else if (habit.frequency === 'weekly') {
+                  const currentWeekStr = getStartOfWeekDateString(new Date());
+                  currentPeriodCount = completions.filter((c) => getStartOfWeekDateString(new Date(c.completed_at)) === currentWeekStr).length;
+                } else {
+                  const currentMonthStr = getStartOfMonthDateString(new Date());
+                  currentPeriodCount = completions.filter((c) => getStartOfMonthDateString(new Date(c.completed_at)) === currentMonthStr).length;
+                }
+
+                return (
+                  <div key={habit.id} className="card card-interactive animate-fadeInUp" style={{ padding: 'var(--space-3) var(--space-4)' }}>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => handleToggleHabit(habit.id)}
+                        style={{
+                          width: 22, height: 22, borderRadius: 'var(--radius-sm)',
+                          border: `2px solid ${stats.isCompleted ? 'var(--color-success)' : habit.color || 'var(--border-color)'}`,
+                          background: stats.isCompleted ? 'var(--color-success)' : 'transparent',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                          transition: 'all var(--transition-fast)',
+                        }}
+                      >
+                        {stats.isCompleted && <Check size={14} color="white" />}
+                      </button>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="list-item-title" style={{ textDecoration: stats.isCompleted ? 'line-through' : 'none', opacity: stats.isCompleted ? 0.6 : 1 }}>
+                          {habit.name}
+                          {habit.target_count > 1 && (
+                            <span className="text-xs text-muted ml-2">
+                              ({currentPeriodCount}/{habit.target_count})
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="badge badge-neutral" style={{ fontSize: '9px', padding: '1px 5px', border: `1px solid ${habit.color || 'var(--border-color)'}`, color: habit.color }}>
+                            {habit.frequency}
+                          </span>
+                          {stats.currentStreak > 0 && (
+                            <span className="text-xs text-muted flex items-center gap-0.5" style={{ color: 'var(--color-warning)' }}>
+                              <Flame size={12} fill="var(--color-warning)" /> {stats.currentStreak} {habit.frequency === 'daily' ? 'day' : habit.frequency === 'weekly' ? 'week' : 'month'} streak
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>

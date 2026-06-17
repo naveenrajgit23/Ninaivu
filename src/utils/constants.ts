@@ -11,6 +11,7 @@ export const NAV_ITEMS = [
   { path: '/study', label: 'Study Hub', icon: 'GraduationCap', section: 'Modules' },
   { path: '/finance', label: 'Finance', icon: 'Wallet', section: 'Modules' },
   { path: '/tasks', label: 'Tasks', icon: 'CheckSquare', section: 'Productivity' },
+  { path: '/habits', label: 'Habits', icon: 'Flame', section: 'Productivity' },
   { path: '/goals', label: 'Goals', icon: 'Target', section: 'Productivity' },
   { path: '/ideas', label: 'Ideas', icon: 'Lightbulb', section: 'Productivity' },
   { path: '/statistics', label: 'Statistics', icon: 'TrendingUp', section: 'System' },

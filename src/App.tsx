@@ -21,6 +21,7 @@ import StudyHubPage from './pages/study/StudyHubPage';
 import FocusTimerPage from './pages/study/FocusTimerPage';
 import FinancePage from './pages/finance/FinancePage';
 import TasksPage from './pages/tasks/TasksPage';
+import HabitsPage from './pages/habits/HabitsPage';
 import GoalsPage from './pages/goals/GoalsPage';
 import IdeasPage from './pages/ideas/IdeasPage';
 import StatisticsPage from './pages/statistics/StatisticsPage';
@@ -86,6 +87,7 @@ function AppRoutes() {
         <Route path="study/timer" element={<FocusTimerPage />} />
         <Route path="finance" element={<FinancePage />} />
         <Route path="tasks" element={<TasksPage />} />
+        <Route path="habits" element={<HabitsPage />} />
         <Route path="goals" element={<GoalsPage />} />
         <Route path="ideas" element={<IdeasPage />} />
         <Route path="statistics" element={<StatisticsPage />} />
