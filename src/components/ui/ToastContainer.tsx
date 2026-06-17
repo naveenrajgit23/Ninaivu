@@ -23,15 +23,15 @@ export default function ToastContainer() {
         const Icon = ICONS[toast.type];
         return (
           <div key={toast.id} className={`toast toast-${toast.type}`}>
-            <Icon size={20} />
-            <span style={{ flex: 1, fontSize: 'var(--font-size-sm)' }}>{toast.message}</span>
+            <Icon size={18} className={`toast-icon-${toast.type}`} style={{ flexShrink: 0 }} />
+            <span style={{ flex: 1, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{toast.message}</span>
             <button
               className="btn btn-icon btn-ghost"
               onClick={() => removeToast(toast.id)}
               aria-label="Dismiss"
-              style={{ padding: '4px' }}
+              style={{ padding: '4px', minHeight: 'auto', minWidth: 'auto' }}
             >
-              <X size={16} />
+              <X size={14} />
             </button>
           </div>
         );

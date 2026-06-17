@@ -107,6 +107,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (isDemo) {
       setStore((prev) => {
         const next = { ...prev, [table]: [newItem, ...prev[table]] };
+        
+        // Auto-update goal progress if completing a linked habit
+        if (table === 'habitCompletions') {
+          const hId = item.habit_id;
+          const habit = next.habits.find(h => h.id === hId);
+          if (habit && habit.goal_id) {
+            const goal = next.goals.find(g => g.id === habit.goal_id);
+            if (goal) {
+              const newProgress = Math.min(100, goal.progress + 5);
+              next.goals = next.goals.map(g => g.id === goal.id ? { ...g, progress: newProgress } : g);
+            }
+          }
+        }
+        
         saveLocalData(next);
         return next;
       });
@@ -114,7 +128,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     if (!user || !supabase) return null;
-    const { data, error } = await supabase!.from(TABLE_MAP[table]).insert([{ ...item, user_id: user.id }]).select().single();
+    
+    const insertPayload = table === 'habitCompletions' ? item : { ...item, user_id: user.id };
+    const { data, error } = await supabase!.from(TABLE_MAP[table]).insert([insertPayload]).select().single();
+    
     if (error) throw error;
     
     setStore((prev) => {
@@ -127,17 +144,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (habit && habit.goal_id) {
           const goal = next.goals.find(g => g.id === habit.goal_id);
           if (goal) {
-            const newProgress = Math.min(100, goal.progress + 5); // Add 5% progress per completion as a simple heuristic
-            if (isDemo) {
-              next.goals = next.goals.map(g => g.id === goal.id ? { ...g, progress: newProgress } : g);
-            } else {
-              // Fire and forget update
-              supabase!.from('goals').update({ progress: newProgress }).eq('id', goal.id).then(({ error }) => {
-                if (!error) {
-                  setStore(s => ({ ...s, goals: s.goals.map(g => g.id === goal.id ? { ...g, progress: newProgress } : g) }));
-                }
-              });
-            }
+            const newProgress = Math.min(100, goal.progress + 5);
+            // Fire and forget update
+            supabase!.from('goals').update({ progress: newProgress }).eq('id', goal.id).then(({ error: updateErr }) => {
+              if (!updateErr) {
+                setStore(s => ({ ...s, goals: s.goals.map(g => g.id === goal.id ? { ...g, progress: newProgress } : g) }));
+              }
+            });
           }
         }
       }
