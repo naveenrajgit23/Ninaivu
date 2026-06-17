@@ -2,8 +2,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode, useCall
 import { supabase } from '../services/supabase';
 import { useAuth } from './AuthContext';
 import { generateId } from '../utils/helpers';
-import type { MemoryItem, Subject, Note, Exam, StudySession, Expense, MoneyTracker, Investment, Goal, Task, Idea, Habit, HabitCompletion, GoalStatus } from '../types';
-import { calculateGoalProgress } from '../utils/habitHelpers';
+import type { MemoryItem, Subject, Note, Exam, StudySession, Expense, MoneyTracker, Investment, Goal, Task, Idea, Habit, HabitCompletion } from '../types';
 
 interface Store {
   memory: MemoryItem[];
@@ -43,7 +42,6 @@ interface DataContextType extends Store {
   updateItem: (table: TableName, id: string, data: any) => Promise<void>;
   deleteItem: (table: TableName, id: string) => Promise<void>;
 }
-
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
@@ -102,67 +100,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [user, isDemo, loadLocalData, loadSupabaseData]);
 
-  // Sync goal progress dynamically when tasks, habits, or habit completions change
-  useEffect(() => {
-    if (loading) return;
-
-    const goalsToUpdate: { id: string; progress: number; status: GoalStatus }[] = [];
-
-    store.goals.forEach((goal) => {
-      const computedProgress = calculateGoalProgress(
-        goal.id,
-        store.tasks,
-        store.habits,
-        store.habitCompletions
-      );
-      
-      let newStatus = goal.status;
-      if (computedProgress === 100 && goal.status !== 'completed') {
-        newStatus = 'completed';
-      } else if (computedProgress < 100 && goal.status === 'completed') {
-        newStatus = 'active';
-      }
-
-      if (goal.progress !== computedProgress || goal.status !== newStatus) {
-        goalsToUpdate.push({ id: goal.id, progress: computedProgress, status: newStatus });
-      }
-    });
-
-    if (goalsToUpdate.length > 0) {
-      const updateGoals = async () => {
-        if (isDemo) {
-          setStore((prev) => {
-            const nextGoals = prev.goals.map((g) => {
-              const update = goalsToUpdate.find((u) => u.id === g.id);
-              return update ? { ...g, progress: update.progress, status: update.status, updated_at: new Date().toISOString() } : g;
-            });
-            const next = { ...prev, goals: nextGoals };
-            saveLocalData(next);
-            return next;
-          });
-        } else {
-          if (!supabase) return;
-          try {
-            for (const update of goalsToUpdate) {
-              await supabase.from('goals').update({ progress: update.progress, status: update.status }).eq('id', update.id);
-            }
-            setStore((prev) => {
-              const nextGoals = prev.goals.map((g) => {
-                const update = goalsToUpdate.find((u) => u.id === g.id);
-                return update ? { ...g, progress: update.progress, status: update.status } : g;
-              });
-              return { ...prev, goals: nextGoals };
-            });
-          } catch (e) {
-            console.error('Failed to update goal progress:', e instanceof Error ? e.message : 'Unknown error');
-          }
-        }
-      };
-      updateGoals();
-    }
-  }, [store.tasks, store.habits, store.habitCompletions, store.goals, loading, isDemo, saveLocalData]);
-
-
   // CRUD Operations
   const addItem = async (table: TableName, item: any) => {
     const newItem = { ...item, id: generateId(), created_at: new Date().toISOString() };
@@ -180,8 +117,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase!.from(TABLE_MAP[table]).insert([{ ...item, user_id: user.id }]).select().single();
     if (error) throw error;
     
-    setStore((prev) => ({ ...prev, [table]: [data, ...prev[table]] }));
-    return data;
+    setStore((prev) => {
+      const next = { ...prev, [table]: [data || newItem, ...prev[table]] };
+      
+      // Auto-update goal progress if completing a linked habit
+      if (table === 'habitCompletions') {
+        const hId = item.habit_id;
+        const habit = next.habits.find(h => h.id === hId);
+        if (habit && habit.goal_id) {
+          const goal = next.goals.find(g => g.id === habit.goal_id);
+          if (goal) {
+            const newProgress = Math.min(100, goal.progress + 5); // Add 5% progress per completion as a simple heuristic
+            if (isDemo) {
+              next.goals = next.goals.map(g => g.id === goal.id ? { ...g, progress: newProgress } : g);
+            } else {
+              // Fire and forget update
+              supabase!.from('goals').update({ progress: newProgress }).eq('id', goal.id).then(({ error }) => {
+                if (!error) {
+                  setStore(s => ({ ...s, goals: s.goals.map(g => g.id === goal.id ? { ...g, progress: newProgress } : g) }));
+                }
+              });
+            }
+          }
+        }
+      }
+      
+      return next;
+    });
+    return data || newItem;
   };
 
   const updateItem = async (table: TableName, id: string, updates: any) => {

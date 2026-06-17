@@ -4,855 +4,412 @@
 
 import { useState, useMemo } from 'react';
 import {
-  Plus, Flame, Target, Trash2, Edit3, Check, Calendar,
-  ChevronLeft, ChevronRight, BarChart2, ListTodo, Search,
-  Award, Info, RefreshCw, Star, Heart, BookOpen, Dumbbell,
-  Terminal, Sparkles, AlertCircle
+  Activity, Plus, Flame, Check, X, Target, BarChart2,
+  Calendar as CalendarIcon, Undo, LayoutDashboard
 } from 'lucide-react';
 import TopBar from '../../components/layout/TopBar';
 import Modal from '../../components/ui/Modal';
-import EmptyState from '../../components/ui/EmptyState';
 import { useData } from '../../contexts/DataContext';
 import { useToast } from '../../contexts/ToastContext';
-import { formatDate } from '../../utils/helpers';
-import {
-  calculateHabitStats,
-  getLocalDateString,
-  getStartOfWeekDateString,
-  getStartOfMonthDateString,
-  getMonthlyHeatmapData
-} from '../../utils/habitHelpers';
-import type { Habit, HabitFrequency, HabitCompletion } from '../../types';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, LineChart, Line, Legend
-} from 'recharts';
+import { HABIT_CATEGORIES } from '../../utils/constants';
+import type { HabitCategory, HabitFrequency } from '../../types';
 
-const HABIT_ICONS = {
-  Flame: Flame,
-  BookOpen: BookOpen,
-  Dumbbell: Dumbbell,
-  Heart: Heart,
-  Terminal: Terminal,
-  Sparkles: Sparkles,
-  Target: Target,
-  Star: Star
+// Helper to get local date string YYYY-MM-DD
+const getLocalDateString = (d: Date = new Date()) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
-const HABIT_COLORS = [
-  { name: 'Indigo', value: '#6366F1' },
-  { name: 'Purple', value: '#8B5CF6' },
-  { name: 'Green', value: '#10B981' },
-  { name: 'Amber', value: '#F59E0B' },
-  { name: 'Red', value: '#EF4444' },
-  { name: 'Blue', value: '#3B82F6' }
-];
-
 export default function HabitsPage() {
-  const { habits, habitCompletions, goals, addItem, updateItem, deleteItem } = useData();
+  const { habits, habitCompletions, goals, addItem, deleteItem } = useData();
   const { showToast } = useToast();
 
-  // Navigation tabs: 'tracker' | 'analytics'
-  const [activeTab, setActiveTab] = useState<'tracker' | 'analytics'>('tracker');
-
-  // Search and Filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [frequencyFilter, setFrequencyFilter] = useState<HabitFrequency | 'all'>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
-
-  // Modals state
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'heatmap' | 'analytics'>('dashboard');
+  const [showModal, setShowModal] = useState(false);
 
   // Form state
   const [form, setForm] = useState({
-    name: '',
+    title: '',
     description: '',
-    category: 'Health',
-    icon: 'Flame',
-    color: '#6366F1',
+    category: 'health' as HabitCategory,
     frequency: 'daily' as HabitFrequency,
     target_count: 1,
-    start_date: getLocalDateString(new Date()),
-    reminder_time: '',
     goal_id: ''
   });
 
-  // Heatmap Calendar state
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth()); // 0-indexed
-  const [selectedDayStr, setSelectedDayStr] = useState<string | null>(getLocalDateString(new Date()));
+  const todayStr = getLocalDateString(new Date());
 
-  // 1. Group habits categories
-  const categories = useMemo(() => {
-    const cats = new Set(habits.map((h) => h.category));
-    return ['all', ...Array.from(cats)];
-  }, [habits]);
-
-  // 2. Filter habits
-  const filteredHabits = useMemo(() => {
-    return habits.filter((habit) => {
-      const matchesSearch = habit.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        habit.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesFreq = frequencyFilter === 'all' || habit.frequency === frequencyFilter;
-      const matchesCat = categoryFilter === 'all' || habit.category === categoryFilter;
-      return matchesSearch && matchesFreq && matchesCat;
-    });
-  }, [habits, searchQuery, frequencyFilter, categoryFilter]);
-
-  // 3. Stats calculations
-  const statsSummary = useMemo(() => {
-    if (habits.length === 0) return { active: 0, completedToday: 0, bestStreak: 0, avgConsistency: 0 };
-    
-    let completedTodayCount = 0;
-    let bestStreak = 0;
-    let totalConsistency = 0;
-
-    habits.forEach((h) => {
-      const stats = calculateHabitStats(h, habitCompletions);
-      if (stats.isCompleted) completedTodayCount++;
-      if (stats.currentStreak > bestStreak) bestStreak = stats.currentStreak;
-      totalConsistency += stats.consistencyScore;
-    });
-
-    return {
-      active: habits.length,
-      completedToday: completedTodayCount,
-      bestStreak,
-      avgConsistency: Math.round(totalConsistency / habits.length)
-    };
-  }, [habits, habitCompletions]);
-
-  // 4. Progress Ring values
-  const ringPercentage = habits.length > 0 ? Math.round((statsSummary.completedToday / habits.length) * 100) : 0;
-  const strokeDashoffset = 120 - (120 * ringPercentage) / 100;
-
-  // 5. Heatmap calendar calculations
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay(); // 0 = Sunday, 1 = Monday...
+  // Derived Stats
+  const activeHabits = habits.filter(h => true); // In future we could add status to habit
+  const todaysCompletions = habitCompletions.filter(c => c.completed_date === todayStr);
+  const completedTodayCount = todaysCompletions.length;
   
-  // Adjusted index so Monday is 0, Sunday is 6
-  const adjustedFirstDayIndex = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
+  const completionRate = activeHabits.length > 0
+    ? Math.round((completedTodayCount / activeHabits.length) * 100)
+    : 0;
 
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
+  // Streak logic (Simplified daily streak)
+  const calculateStreak = (habitId: string) => {
+    const dates = habitCompletions
+      .filter(c => c.habit_id === habitId)
+      .map(c => c.completed_date)
+      .sort((a, b) => b.localeCompare(a));
+    
+    if (dates.length === 0) return { current: 0, best: 0, total: 0 };
+    
+    let current = 0;
+    let best = 0;
+    let tempStreak = 0;
+    let lastDate = new Date(); // Start checking from today
+    
+    // Normalize to midnight local time for safe day math
+    lastDate.setHours(0, 0, 0, 0);
 
-  const monthHeatmapData = useMemo(() => {
-    return getMonthlyHeatmapData(habitCompletions, currentYear, currentMonth);
-  }, [habitCompletions, currentYear, currentMonth]);
-
-  const handlePrevMonth = () => {
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear((y) => y - 1);
+    const dateSet = new Set(dates);
+    
+    // Check current streak starting from today or yesterday
+    let checkDate = new Date(lastDate);
+    if (!dateSet.has(getLocalDateString(checkDate))) {
+      checkDate.setDate(checkDate.getDate() - 1); // Check yesterday
+      if (!dateSet.has(getLocalDateString(checkDate))) {
+        current = 0;
+      } else {
+        while(dateSet.has(getLocalDateString(checkDate))) {
+          current++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        }
+      }
     } else {
-      setCurrentMonth((m) => m - 1);
+      while(dateSet.has(getLocalDateString(checkDate))) {
+        current++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
     }
+
+    // Calculate best streak globally
+    let sortedDatesAsc = [...dates].reverse();
+    if (sortedDatesAsc.length > 0) {
+      tempStreak = 1;
+      best = 1;
+      for (let i = 1; i < sortedDatesAsc.length; i++) {
+        const prev = new Date(sortedDatesAsc[i - 1]);
+        const curr = new Date(sortedDatesAsc[i]);
+        const diffTime = Math.abs(curr.getTime() - prev.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 1) {
+          tempStreak++;
+          if (tempStreak > best) best = tempStreak;
+        } else if (diffDays > 1) {
+          tempStreak = 1;
+        }
+      }
+    }
+
+    return { current, best, total: dates.length };
   };
 
-  const handleNextMonth = () => {
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear((y) => y + 1);
-    } else {
-      setCurrentMonth((m) => m + 1);
+  const bestOverallStreak = habits.reduce((max, h) => {
+    const s = calculateStreak(h.id);
+    return s.current > max ? s.current : max;
+  }, 0);
+
+  // Handlers
+  const handleSaveHabit = async () => {
+    if (!form.title.trim()) {
+      showToast('Title is required', 'error');
+      return;
     }
-  };
-
-  const selectedDayCompletions = useMemo(() => {
-    if (!selectedDayStr) return [];
-    return habitCompletions.filter((c) => {
-      const d = getLocalDateString(new Date(c.completed_at));
-      return d === selectedDayStr;
-    }).map((c) => {
-      const habit = habits.find((h) => h.id === c.habit_id);
-      return {
-        ...c,
-        habitName: habit ? habit.name : 'Unknown Habit',
-        color: habit ? habit.color : '#64748B'
-      };
-    });
-  }, [selectedDayStr, habitCompletions, habits]);
-
-  // 6. CRUD Operations Handlers
-  const handleSave = async () => {
-    if (!form.name.trim()) return;
-    const payload = {
+    const catConfig = HABIT_CATEGORIES[form.category];
+    await addItem('habits', {
       ...form,
-      reminder_time: form.reminder_time || null,
+      icon: catConfig.icon,
+      color: catConfig.color,
+      start_date: todayStr,
       goal_id: form.goal_id || null
-    };
-
-    if (editId) {
-      await updateItem('habits', editId, payload);
-      showToast('Habit updated!', 'success');
-    } else {
-      await addItem('habits', payload);
-      showToast('Habit created!', 'success');
-    }
-    resetForm();
+    });
+    setShowModal(false);
+    showToast('Habit created!', 'success');
+    setForm({ title: '', description: '', category: 'health', frequency: 'daily', target_count: 1, goal_id: '' });
   };
 
-  const startEdit = (habit: Habit) => {
-    setForm({
-      name: habit.name,
-      description: habit.description,
-      category: habit.category,
-      icon: habit.icon,
-      color: habit.color,
-      frequency: habit.frequency,
-      target_count: habit.target_count,
-      start_date: habit.start_date.split('T')[0],
-      reminder_time: habit.reminder_time || '',
-      goal_id: habit.goal_id || ''
-    });
-    setEditId(habit.id);
-    setShowAddModal(true);
+  const toggleHabit = async (habitId: string) => {
+    const existing = habitCompletions.find(c => c.habit_id === habitId && c.completed_date === todayStr);
+    if (existing) {
+      await deleteItem('habitCompletions', existing.id);
+      showToast('Habit completion undone', 'info');
+    } else {
+      await addItem('habitCompletions', { habit_id: habitId, completed_date: todayStr });
+      showToast('Habit marked complete! 🎉', 'success');
+    }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this habit and all its completions?')) {
+    if (window.confirm('Delete this habit? History will be lost.')) {
       await deleteItem('habits', id);
-      showToast('Habit deleted', 'info');
+      showToast('Habit deleted', 'success');
     }
   };
 
-  const handleToggleHabit = async (habitId: string) => {
-    const completions = habitCompletions.filter((c) => c.habit_id === habitId);
-    const habit = habits.find((h) => h.id === habitId);
-    if (!habit) return;
-
-    const stats = calculateHabitStats(habit, habitCompletions);
-
-    if (stats.isCompleted) {
-      // Undo completions in active period
-      let completionsToDelete: HabitCompletion[] = [];
-      const todayStr = getLocalDateString(new Date());
-
-      if (habit.frequency === 'daily') {
-        completionsToDelete = completions.filter((c) => getLocalDateString(new Date(c.completed_at)) === todayStr);
-      } else if (habit.frequency === 'weekly') {
-        const currentWeekStr = getStartOfWeekDateString(new Date());
-        completionsToDelete = completions.filter((c) => getStartOfWeekDateString(new Date(c.completed_at)) === currentWeekStr);
-      } else {
-        const currentMonthStr = getStartOfMonthDateString(new Date());
-        completionsToDelete = completions.filter((c) => getStartOfMonthDateString(new Date(c.completed_at)) === currentMonthStr);
-      }
-
-      if (completionsToDelete.length > 0) {
-        const latest = completionsToDelete.sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime())[0];
-        await deleteItem('habitCompletions', latest.id);
-        showToast('Habit progress undone!', 'info');
-      }
-    } else {
-      // Add completion
-      await addItem('habitCompletions', {
-        habit_id: habitId,
-        completed_at: new Date().toISOString()
-      });
-      showToast('Habit progress updated!', 'success');
-    }
-  };
-
-  const resetForm = () => {
-    setForm({
-      name: '',
-      description: '',
-      category: 'Health',
-      icon: 'Flame',
-      color: '#6366F1',
-      frequency: 'daily' as HabitFrequency,
-      target_count: 1,
-      start_date: getLocalDateString(new Date()),
-      reminder_time: '',
-      goal_id: ''
-    });
-    setEditId(null);
-    setShowAddModal(false);
-  };
-
-  // 7. Analytics chart generation
-  const weeklyAnalyticsData = useMemo(() => {
-    // Generate data for last 7 days
-    const daysData = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
+  // Heatmap generation
+  const generateHeatmap = () => {
+    const days = 90; // Last 90 days
+    const map = [];
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(today);
       d.setDate(d.getDate() - i);
-      const dateStr = getLocalDateString(d);
-      
-      const compCount = habitCompletions.filter((c) => getLocalDateString(new Date(c.completed_at)) === dateStr).length;
-      
-      daysData.push({
-        name: d.toLocaleDateString('en-US', { weekday: 'short' }),
-        Completions: compCount
-      });
+      const ds = getLocalDateString(d);
+      const count = habitCompletions.filter(c => c.completed_date === ds).length;
+      map.push({ date: ds, count });
     }
-    return daysData;
-  }, [habitCompletions]);
+    return map;
+  };
 
-  const habitsConsistencyData = useMemo(() => {
-    return habits.map((h) => {
-      const stats = calculateHabitStats(h, habitCompletions);
-      return {
-        name: h.name.substring(0, 15) + (h.name.length > 15 ? '...' : ''),
-        Consistency: stats.consistencyScore
-      };
-    }).sort((a, b) => b.Consistency - a.Consistency);
-  }, [habits, habitCompletions]);
-
-  // Derived Analytics stats
-  const bestPerformingHabit = useMemo(() => {
-    if (habits.length === 0) return null;
-    let bestHabit: Habit | null = null;
-    let maxStreak = -1;
-
-    habits.forEach((h) => {
-      const stats = calculateHabitStats(h, habitCompletions);
-      if (stats.currentStreak > maxStreak) {
-        maxStreak = stats.currentStreak;
-        bestHabit = h;
-      }
-    });
-
-    return bestHabit ? { habit: bestHabit as Habit, streak: maxStreak } : null;
-  }, [habits, habitCompletions]);
-
-  const consistencyLeader = useMemo(() => {
-    if (habits.length === 0) return null;
-    let bestHabit: Habit | null = null;
-    let maxConsistency = -1;
-
-    habits.forEach((h) => {
-      const stats = calculateHabitStats(h, habitCompletions);
-      if (stats.consistencyScore > maxConsistency) {
-        maxConsistency = stats.consistencyScore;
-        bestHabit = h;
-      }
-    });
-
-    return bestHabit ? { habit: bestHabit as Habit, consistency: maxConsistency } : null;
-  }, [habits, habitCompletions]);
+  const heatmapData = useMemo(() => generateHeatmap(), [habitCompletions]);
 
   return (
     <>
-      <TopBar title="Habits" subtitle={`${statsSummary.active} active habits`} />
+      <TopBar title="Habits" subtitle="Build better routines" />
 
       <div className="page">
-        {/* Navigation Tabs */}
-        <div className="tabs mb-6">
-          <button className={`tab ${activeTab === 'tracker' ? 'tab-active' : ''}`} onClick={() => setActiveTab('tracker')}>
-            <ListTodo size={16} /> Tracker
-          </button>
-          <button className={`tab ${activeTab === 'analytics' ? 'tab-active' : ''}`} onClick={() => setActiveTab('analytics')}>
-            <BarChart2 size={16} /> Analytics
+        {/* Top Stats */}
+        <div className="grid grid-4 animate-fadeInUp" style={{ marginBottom: 'var(--space-6)' }}>
+          <div className="card card-gradient">
+            <div className="stat-card">
+              <div className="stat-card-icon" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
+                <Activity size={22} />
+              </div>
+              <span className="stat-card-value">{activeHabits.length}</span>
+              <span className="stat-card-label">Active Habits</span>
+            </div>
+          </div>
+          <div className="card card-gradient">
+            <div className="stat-card">
+              <div className="stat-card-icon" style={{ background: 'var(--color-success-light)', color: 'var(--color-success)' }}>
+                <Check size={22} />
+              </div>
+              <span className="stat-card-value">{completedTodayCount}</span>
+              <span className="stat-card-label">Completed Today</span>
+            </div>
+          </div>
+          <div className="card card-gradient">
+            <div className="stat-card">
+              <div className="stat-card-icon" style={{ background: 'var(--color-warning-light)', color: 'var(--color-warning)' }}>
+                <Flame size={22} />
+              </div>
+              <span className="stat-card-value">{bestOverallStreak}</span>
+              <span className="stat-card-label">Best Active Streak</span>
+            </div>
+          </div>
+          <div className="card card-gradient">
+            <div className="stat-card">
+              <div className="stat-card-icon" style={{ background: 'var(--color-info-light)', color: 'var(--color-info)' }}>
+                <Target size={22} />
+              </div>
+              <span className="stat-card-value">{completionRate}%</span>
+              <span className="stat-card-label">Today's Rate</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs & Add Button */}
+        <div className="flex items-center justify-between mb-6 animate-fadeInUp stagger-1">
+          <div className="tabs">
+            <button className={`tab ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
+              <LayoutDashboard size={16} /> Dashboard
+            </button>
+            <button className={`tab ${activeTab === 'heatmap' ? 'active' : ''}`} onClick={() => setActiveTab('heatmap')}>
+              <CalendarIcon size={16} /> Calendar
+            </button>
+            <button className={`tab ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
+              <BarChart2 size={16} /> Analytics
+            </button>
+          </div>
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            <Plus size={18} /> Add Habit
           </button>
         </div>
 
-        {activeTab === 'tracker' ? (
-          <div className="grid grid-3 gap-6" style={{ alignItems: 'flex-start' }}>
-            
-            {/* Left: Habit Checklist and Filters */}
-            <div className="grid-col-2 flex flex-col gap-6">
-              
-              {/* Stats Overview */}
-              <section className="grid grid-2 gap-4">
-                <div className="card card-gradient flex items-center justify-between" style={{ padding: 'var(--space-4)' }}>
-                  <div className="stat-card">
-                    <div className="stat-card-icon" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)', marginBottom: 'var(--space-2)' }}>
-                      <Flame size={20} />
-                    </div>
-                    <span className="stat-card-value">{statsSummary.active}</span>
-                    <span className="stat-card-label">Active Habits</span>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-card-icon" style={{ background: 'var(--color-success-light)', color: 'var(--color-success)', marginBottom: 'var(--space-2)' }}>
-                      <Check size={20} />
-                    </div>
-                    <span className="stat-card-value">{statsSummary.completedToday}</span>
-                    <span className="stat-card-label">Completed Today</span>
-                  </div>
-                </div>
-
-                <div className="card card-gradient flex items-center justify-between" style={{ padding: 'var(--space-4)' }}>
-                  <div className="stat-card">
-                    <div className="stat-card-icon" style={{ background: 'var(--color-warning-light)', color: 'var(--color-warning)', marginBottom: 'var(--space-2)' }}>
-                      <Award size={20} />
-                    </div>
-                    <span className="stat-card-value">{statsSummary.bestStreak}</span>
-                    <span className="stat-card-label">Best Streak</span>
-                  </div>
-                  
-                  {/* Progress Circle */}
-                  <div className="flex flex-col items-center gap-1" style={{ width: '60px' }}>
-                    <svg viewBox="0 0 44 44" width="48" height="48" style={{ transform: 'rotate(-90deg)' }}>
-                      <circle cx="22" cy="22" r="19" fill="transparent" stroke="var(--border-color)" strokeWidth="3" />
-                      <circle cx="22" cy="22" r="19" fill="transparent" stroke="var(--color-success)" strokeWidth="3"
-                        strokeDasharray="120" strokeDashoffset={strokeDashoffset} strokeLinecap="round"
-                        style={{ transition: 'stroke-dashoffset 0.35s' }} />
-                    </svg>
-                    <span className="text-xs font-semibold">{ringPercentage}% Done</span>
-                  </div>
-                </div>
-              </section>
-
-              {/* Filters */}
-              <section className="card" style={{ padding: 'var(--space-4)' }}>
-                <div className="flex gap-3 flex-wrap">
-                  {/* Search */}
-                  <div className="search-bar flex-1" style={{ minWidth: '180px' }}>
-                    <span className="search-icon"><Search size={16} /></span>
-                    <input className="input" style={{ paddingLeft: 'var(--space-8)' }} placeholder="Search habits..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                  </div>
-                  
-                  {/* Frequency Filter */}
-                  <select className="input select" style={{ width: '130px' }} value={frequencyFilter} onChange={(e) => setFrequencyFilter(e.target.value as any)}>
-                    <option value="all">All Freq</option>
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                  </select>
-
-                  {/* Category Filter */}
-                  <select className="input select" style={{ width: '130px' }} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-                    <option value="all">All Category</option>
-                    {categories.filter(c => c !== 'all').map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                </div>
-              </section>
-
-              {/* Habits Checklist */}
-              <section className="flex flex-col gap-3">
-                {filteredHabits.length === 0 ? (
-                  <EmptyState
-                    icon={<Flame size={32} />}
-                    title="No habits found"
-                    description="Create a habit to begin tracking your productivity."
-                    action={<button className="btn btn-primary" onClick={() => setShowAddModal(true)}>Add Habit</button>}
-                  />
-                ) : (
-                  filteredHabits.map((habit) => {
-                    const stats = calculateHabitStats(habit, habitCompletions);
-                    const IconComponent = HABIT_ICONS[habit.icon as keyof typeof HABIT_ICONS] || Flame;
-
-                    // Get completion count for current period
-                    let periodCount = 0;
-                    const todayStr = getLocalDateString(new Date());
-                    const completions = habitCompletions.filter((c) => c.habit_id === habit.id);
-                    if (habit.frequency === 'daily') {
-                      periodCount = completions.filter((c) => getLocalDateString(new Date(c.completed_at)) === todayStr).length;
-                    } else if (habit.frequency === 'weekly') {
-                      const currentWeekStr = getStartOfWeekDateString(new Date());
-                      periodCount = completions.filter((c) => getStartOfWeekDateString(new Date(c.completed_at)) === currentWeekStr).length;
-                    } else {
-                      const currentMonthStr = getStartOfMonthDateString(new Date());
-                      periodCount = completions.filter((c) => getStartOfMonthDateString(new Date(c.completed_at)) === currentMonthStr).length;
-                    }
-
-                    return (
-                      <div key={habit.id} className="card card-interactive animate-fadeInUp" style={{ padding: 'var(--space-4)' }}>
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            {/* Complete trigger */}
-                            <button
-                              onClick={() => handleToggleHabit(habit.id)}
-                              style={{
-                                width: 24, height: 24, borderRadius: 'var(--radius-sm)',
-                                border: `2px solid ${stats.isCompleted ? 'var(--color-success)' : habit.color}`,
-                                background: stats.isCompleted ? 'var(--color-success)' : 'transparent',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                                transition: 'all var(--transition-fast)'
-                              }}
-                            >
-                              {stats.isCompleted && <Check size={16} color="white" />}
-                            </button>
-
-                            <div>
-                              <h3 className="font-semibold text-base" style={{ textDecoration: stats.isCompleted ? 'line-through' : 'none', opacity: stats.isCompleted ? 0.6 : 1 }}>
-                                {habit.name}
-                              </h3>
-                              <span className="text-xs text-muted">
-                                Category: {habit.category} • Frequency: {habit.frequency}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1">
-                            <button className="btn btn-icon btn-ghost" onClick={() => startEdit(habit)} style={{ padding: 4 }}><Edit3 size={15} /></button>
-                            <button className="btn btn-icon btn-ghost" onClick={() => handleDelete(habit.id)} style={{ padding: 4 }}><Trash2 size={15} /></button>
-                          </div>
+        {/* Dashboard Tab */}
+        {activeTab === 'dashboard' && (
+          <div className="grid grid-2 animate-fadeInUp stagger-2 gap-4">
+            {activeHabits.length === 0 ? (
+              <div className="card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 'var(--space-8)' }}>
+                <Activity size={32} className="text-muted" style={{ margin: '0 auto var(--space-3)' }} />
+                <h3 className="text-lg font-medium mb-2">No habits yet</h3>
+                <p className="text-secondary mb-4">Start tracking your daily routines to build better habits.</p>
+                <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>Create your first habit</button>
+              </div>
+            ) : (
+              activeHabits.map((habit) => {
+                const isCompleted = todaysCompletions.some(c => c.habit_id === habit.id);
+                const stats = calculateStreak(habit.id);
+                
+                return (
+                  <div key={habit.id} className="card" style={{ position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: habit.color }} />
+                    <div className="flex justify-between items-start" style={{ paddingLeft: 'var(--space-2)' }}>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span style={{ color: habit.color, fontSize: '1.2rem' }}>•</span>
+                          <h3 className="font-semibold text-lg">{habit.title}</h3>
+                          <span className="badge badge-secondary" style={{ fontSize: '0.65rem' }}>{habit.frequency}</span>
                         </div>
-
                         {habit.description && <p className="text-sm text-secondary mb-3">{habit.description}</p>}
-
-                        {/* Tracker Progress Bar */}
-                        <div className="flex items-center justify-between text-xs text-muted mb-2">
-                          <span>Progress this period</span>
-                          <span className="font-medium" style={{ color: habit.color }}>
-                            {periodCount} / {habit.target_count} ({Math.min(100, Math.round((periodCount / habit.target_count) * 100))}%)
-                          </span>
-                        </div>
-                        <div className="progress mb-3" style={{ height: 6 }}>
-                          <div className="progress-bar" style={{ width: `${Math.min(100, (periodCount / habit.target_count) * 100)}%`, background: habit.color }} />
-                        </div>
-
-                        {/* Consistency stats */}
-                        <div className="grid grid-3 gap-2 text-center" style={{ background: 'var(--bg-secondary)', padding: 'var(--space-2)', borderRadius: 'var(--radius-md)' }}>
-                          <div>
-                            <div className="text-xs text-muted">Streak</div>
-                            <div className="text-sm font-bold flex items-center justify-center gap-0.5" style={{ color: 'var(--color-warning)' }}>
-                              <Flame size={14} fill="var(--color-warning)" /> {stats.currentStreak}
-                            </div>
+                        
+                        <div className="flex items-center gap-4 text-sm text-secondary mt-2">
+                          <div className="flex items-center gap-1" title="Current Streak">
+                            <Flame size={14} style={{ color: stats.current > 0 ? 'var(--color-warning)' : 'inherit' }} />
+                            {stats.current} days
                           </div>
-                          <div>
-                            <div className="text-xs text-muted">Longest</div>
-                            <div className="text-sm font-bold" style={{ color: 'var(--color-primary)' }}>
-                              {stats.longestStreak}
-                            </div>
+                          <div className="flex items-center gap-1" title="Best Streak">
+                            <Target size={14} />
+                            Best: {stats.best}
                           </div>
-                          <div>
-                            <div className="text-xs text-muted">Consistency</div>
-                            <div className="text-sm font-bold" style={{ color: 'var(--color-success)' }}>
-                              {stats.consistencyScore}%
-                            </div>
+                          <div className="flex items-center gap-1" title="Total Completions">
+                            <Check size={14} />
+                            Total: {stats.total}
                           </div>
                         </div>
                       </div>
-                    );
-                  })
-                )}
-              </section>
-            </div>
-
-            {/* Right: GitHub Heatmap Calendar */}
-            <div className="flex flex-col gap-6">
-              
-              {/* Heatmap Card */}
-              <section className="card">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-md font-bold font-heading">Heatmap Calendar</h2>
-                  <div className="flex items-center gap-1">
-                    <button className="btn btn-icon btn-ghost" onClick={handlePrevMonth}><ChevronLeft size={16} /></button>
-                    <span className="text-sm font-semibold">{monthNames[currentMonth]} {currentYear}</span>
-                    <button className="btn btn-icon btn-ghost" onClick={handleNextMonth}><ChevronRight size={16} /></button>
-                  </div>
-                </div>
-
-                {/* Day Labels */}
-                <div className="grid grid-7 text-center text-xs text-muted font-semibold mb-2">
-                  <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-                </div>
-
-                {/* Calendar Grid */}
-                <div className="grid grid-7 gap-1">
-                  {/* Empty offsets */}
-                  {Array.from({ length: adjustedFirstDayIndex }).map((_, index) => (
-                    <div key={`offset-${index}`} style={{ aspectRatio: '1/1' }} />
-                  ))}
-
-                  {/* Days */}
-                  {Array.from({ length: daysInMonth }).map((_, index) => {
-                    const day = index + 1;
-                    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    const count = monthHeatmapData[dateStr] || 0;
-                    
-                    // Determine green shades
-                    let bgColor = 'var(--bg-secondary)';
-                    let textColor = 'var(--text-primary)';
-                    if (count === 1) bgColor = 'rgba(16, 185, 129, 0.15)';
-                    else if (count >= 2 && count <= 3) bgColor = 'rgba(16, 185, 129, 0.45)';
-                    else if (count >= 4) {
-                      bgColor = 'rgba(16, 185, 129, 1.0)';
-                      textColor = '#ffffff';
-                    }
-
-                    const isSelected = selectedDayStr === dateStr;
-
-                    return (
-                      <button
-                        key={`day-${day}`}
-                        onClick={() => setSelectedDayStr(dateStr)}
-                        className="flex items-center justify-center text-xs font-semibold"
-                        style={{
-                          aspectRatio: '1/1',
-                          borderRadius: 'var(--radius-sm)',
-                          background: bgColor,
-                          color: textColor,
-                          border: isSelected ? '2px solid var(--color-primary)' : 'none',
-                          cursor: 'pointer',
-                          transition: 'transform 0.15s ease'
-                        }}
-                        title={`${dateStr}: ${count} completions`}
-                      >
-                        {day}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Legend */}
-                <div className="flex items-center justify-end gap-1 mt-4 text-xs text-muted">
-                  <span>Less</span>
-                  <div style={{ width: 12, height: 12, background: 'var(--bg-secondary)', borderRadius: 2 }} />
-                  <div style={{ width: 12, height: 12, background: 'rgba(16, 185, 129, 0.15)', borderRadius: 2 }} />
-                  <div style={{ width: 12, height: 12, background: 'rgba(16, 185, 129, 0.45)', borderRadius: 2 }} />
-                  <div style={{ width: 12, height: 12, background: 'rgba(16, 185, 129, 1.0)', borderRadius: 2 }} />
-                  <span>More</span>
-                </div>
-              </section>
-
-              {/* Day completions summary */}
-              {selectedDayStr && (
-                <section className="card">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Calendar size={18} style={{ color: 'var(--color-primary)' }} />
-                    <h3 className="text-sm font-bold">Completions on {formatDate(selectedDayStr)}</h3>
-                  </div>
-
-                  {selectedDayCompletions.length === 0 ? (
-                    <p className="text-xs text-muted text-center py-4">No completions recorded for this day.</p>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {selectedDayCompletions.map((comp) => (
-                        <div key={comp.id} className="flex items-center gap-2 text-xs" style={{ background: 'var(--bg-secondary)', padding: 'var(--space-2)', borderRadius: 'var(--radius-md)' }}>
-                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: comp.color }} />
-                          <span className="font-semibold flex-1">{comp.habitName}</span>
-                          <span className="text-muted">{formatDate(comp.completed_at, { hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
-                      ))}
+                      
+                      <div className="flex flex-col items-end gap-2">
+                        <button 
+                          className={`btn ${isCompleted ? 'btn-ghost' : 'btn-primary'} btn-icon`}
+                          style={{ 
+                            borderRadius: '50%', width: 48, height: 48,
+                            background: isCompleted ? 'var(--bg-secondary)' : habit.color,
+                            color: isCompleted ? 'var(--text-primary)' : '#fff',
+                            border: 'none'
+                          }}
+                          onClick={() => toggleHabit(habit.id)}
+                          title={isCompleted ? "Undo completion" : "Mark complete"}
+                        >
+                          {isCompleted ? <Undo size={20} /> : <Check size={24} />}
+                        </button>
+                        <button className="btn btn-ghost btn-sm text-xs" onClick={() => handleDelete(habit.id)} style={{ padding: '4px 8px', height: 'auto', marginTop: 'auto' }}>
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                  )}
-                </section>
-              )}
-            </div>
-          </div>
-        ) : (
-          /* Analytics Tab */
-          <div className="flex flex-col gap-6 animate-fadeInUp">
-            
-            {/* Top Analytics Cards */}
-            <div className="grid grid-3 gap-6">
-              
-              <div className="card card-gradient flex items-center gap-4">
-                <div className="stat-card-icon" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)', width: 44, height: 44 }}>
-                  <Award size={22} />
-                </div>
-                <div>
-                  <div className="text-xs text-muted">Best Active Streak</div>
-                  {bestPerformingHabit ? (
-                    <>
-                      <div className="text-md font-bold">{bestPerformingHabit.habit.name}</div>
-                      <div className="text-xs text-muted flex items-center gap-0.5 mt-0.5" style={{ color: 'var(--color-warning)' }}>
-                        <Flame size={12} fill="var(--color-warning)" /> {bestPerformingHabit.streak} days
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-sm font-bold text-muted">No habits tracked</div>
-                  )}
-                </div>
-              </div>
-
-              <div className="card card-gradient flex items-center gap-4">
-                <div className="stat-card-icon" style={{ background: 'var(--color-success-light)', color: 'var(--color-success)', width: 44, height: 44 }}>
-                  <CheckSquare size={22} />
-                </div>
-                <div>
-                  <div className="text-xs text-muted">Most Consistent Habit</div>
-                  {consistencyLeader ? (
-                    <>
-                      <div className="text-md font-bold">{consistencyLeader.habit.name}</div>
-                      <div className="text-xs text-muted mt-0.5 font-semibold" style={{ color: 'var(--color-success)' }}>
-                        {consistencyLeader.consistency}% consistency
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-sm font-bold text-muted">No habits tracked</div>
-                  )}
-                </div>
-              </div>
-
-              <div className="card card-gradient flex items-center gap-4">
-                <div className="stat-card-icon" style={{ background: 'var(--color-warning-light)', color: 'var(--color-warning)', width: 44, height: 44 }}>
-                  <Info size={22} />
-                </div>
-                <div>
-                  <div className="text-xs text-muted">Consistency Average</div>
-                  <div className="text-lg font-bold">{statsSummary.avgConsistency}%</div>
-                  <div className="text-xs text-muted">Across all active habits</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Charts Section */}
-            <div className="grid grid-2 gap-6">
-              
-              {/* Daily Completions Trend */}
-              <div className="card">
-                <h3 className="text-md font-bold font-heading mb-4">Completions in Last 7 Days</h3>
-                <div style={{ width: '100%', height: 260 }}>
-                  <ResponsiveContainer>
-                    <LineChart data={weeklyAnalyticsData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                      <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} />
-                      <YAxis stroke="var(--text-muted)" fontSize={11} allowDecimals={false} />
-                      <Tooltip contentStyle={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
-                      <Line type="monotone" dataKey="Completions" stroke="var(--color-success)" strokeWidth={3} activeDot={{ r: 6 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Consistency Leaderboard */}
-              <div className="card">
-                <h3 className="text-md font-bold font-heading mb-4">Habit Consistency Scores (%)</h3>
-                {habits.length === 0 ? (
-                  <p className="text-xs text-muted text-center py-20">Create habits to view consistency ranking.</p>
-                ) : (
-                  <div style={{ width: '100%', height: 260 }}>
-                    <ResponsiveContainer>
-                      <BarChart data={habitsConsistencyData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                        <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={10} />
-                        <YAxis stroke="var(--text-muted)" fontSize={11} domain={[0, 100]} />
-                        <Tooltip contentStyle={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
-                        <Bar dataKey="Consistency" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
                   </div>
-                )}
-              </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* Heatmap Tab */}
+        {activeTab === 'heatmap' && (
+          <div className="card animate-fadeInUp stagger-2">
+            <h3 className="font-semibold mb-4">Last 90 Days Overview</h3>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxWidth: '100%' }}>
+              {heatmapData.map((d, i) => {
+                let bg = 'var(--bg-secondary)';
+                if (d.count === 1) bg = 'rgba(16, 185, 129, 0.4)';
+                if (d.count === 2) bg = 'rgba(16, 185, 129, 0.6)';
+                if (d.count >= 3) bg = 'rgba(16, 185, 129, 1)';
+                
+                return (
+                  <div 
+                    key={i} 
+                    title={`${d.date}: ${d.count} completions`}
+                    style={{
+                      width: 14, height: 14, borderRadius: 2, background: bg, cursor: 'help'
+                    }}
+                  />
+                )
+              })}
+            </div>
+            <div className="flex items-center gap-2 mt-4 text-xs text-secondary justify-end">
+              <span>Less</span>
+              <div style={{ width: 12, height: 12, borderRadius: 2, background: 'var(--bg-secondary)' }} />
+              <div style={{ width: 12, height: 12, borderRadius: 2, background: 'rgba(16, 185, 129, 0.4)' }} />
+              <div style={{ width: 12, height: 12, borderRadius: 2, background: 'rgba(16, 185, 129, 0.6)' }} />
+              <div style={{ width: 12, height: 12, borderRadius: 2, background: 'rgba(16, 185, 129, 1)' }} />
+              <span>More</span>
             </div>
           </div>
         )}
 
-        {/* Floating Add button */}
-        <button className="fab" onClick={() => setShowAddModal(true)} id="fab-add-habit">
-          <Plus size={24} />
-        </button>
+        {/* Analytics Tab */}
+        {activeTab === 'analytics' && (
+          <div className="grid grid-2 gap-4 animate-fadeInUp stagger-2">
+            <div className="card">
+              <h3 className="font-semibold mb-4">Consistency Score</h3>
+              <div className="flex items-center justify-center" style={{ height: 150 }}>
+                <div style={{ position: 'relative', width: 120, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: `conic-gradient(var(--color-primary) ${completionRate}%, var(--bg-secondary) 0)` }}>
+                  <div style={{ position: 'absolute', width: 100, height: 100, background: 'var(--bg-card)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                    <span className="text-2xl font-bold">{completionRate}%</span>
+                    <span className="text-xs text-secondary">Today</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="card">
+              <h3 className="font-semibold mb-4">Habit Overview</h3>
+              <ul className="space-y-3">
+                {activeHabits.map(h => {
+                  const s = calculateStreak(h.id);
+                  return (
+                    <li key={h.id} className="flex justify-between items-center text-sm">
+                      <span className="flex items-center gap-2">
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: h.color }} />
+                        {h.title}
+                      </span>
+                      <span className="text-secondary font-medium">{s.total} total</span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* CRUD Add/Edit Habit Modal */}
-      <Modal
-        isOpen={showAddModal}
-        onClose={resetForm}
-        title={editId ? 'Edit Habit' : 'New Habit'}
-        footer={
-          <>
-            <button className="btn btn-secondary" onClick={resetForm}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleSave}>{editId ? 'Update' : 'Create'}</button>
-          </>
-        }
-      >
+      {/* Add Habit Modal */}
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Create New Habit"
+        footer={<><button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button><button className="btn btn-primary" onClick={handleSaveHabit}>Save</button></>}>
         <div className="input-group">
           <label className="input-label">Habit Name</label>
-          <input className="input" placeholder="e.g. Read 10 Pages, Exercise..." value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus id="habit-name" maxLength={40} />
+          <input className="input" placeholder="e.g. Read 10 Pages" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} autoFocus />
         </div>
-        
         <div className="input-group">
           <label className="input-label">Description (Optional)</label>
-          <textarea className="input textarea" placeholder="e.g. Keep a book on the nightstand..." value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} id="habit-desc" maxLength={150} />
+          <input className="input" placeholder="Why are you building this habit?" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
         </div>
-
         <div className="grid grid-2 gap-3">
           <div className="input-group">
             <label className="input-label">Category</label>
-            <input className="input" placeholder="e.g. Health, Work, Study..." value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} id="habit-category" maxLength={20} />
+            <select className="input select" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as HabitCategory })}>
+              {Object.entries(HABIT_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
           </div>
-
           <div className="input-group">
             <label className="input-label">Frequency</label>
-            <select className="input select" value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value as HabitFrequency })} id="habit-frequency">
+            <select className="input select" value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value as HabitFrequency })}>
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
               <option value="monthly">Monthly</option>
             </select>
           </div>
         </div>
-
-        <div className="grid grid-2 gap-3">
+        {goals.length > 0 && (
           <div className="input-group">
-            <label className="input-label">Target Count (per period)</label>
-            <input className="input" type="number" min={1} max={100} value={form.target_count} onChange={(e) => setForm({ ...form, target_count: parseInt(e.target.value) || 1 })} id="habit-target-count" />
+            <label className="input-label">Link to Goal (Optional)</label>
+            <select className="input select" value={form.goal_id} onChange={(e) => setForm({ ...form, goal_id: e.target.value })}>
+              <option value="">-- None --</option>
+              {goals.filter(g => g.status === 'active').map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
+            </select>
+            <p className="text-xs text-muted mt-1">Completing this habit will boost the goal's progress.</p>
           </div>
-
-          <div className="input-group">
-            <label className="input-label">Start Date</label>
-            <input className="input" type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} id="habit-start-date" />
-          </div>
-        </div>
-
-        <div className="grid grid-2 gap-3">
-          <div className="input-group">
-            <label className="input-label">Reminder Time (Optional)</label>
-            <input className="input" type="time" value={form.reminder_time} onChange={(e) => setForm({ ...form, reminder_time: e.target.value })} id="habit-reminder" />
-          </div>
-
-          {goals.length > 0 && (
-            <div className="input-group">
-              <label className="input-label">Link to Goal (Optional)</label>
-              <select className="input select" value={form.goal_id} onChange={(e) => setForm({ ...form, goal_id: e.target.value })} id="habit-goal">
-                <option value="">None</option>
-                {goals.filter((g) => g.status === 'active').map((g) => (
-                  <option key={g.id} value={g.id}>{g.title}</option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-
-        {/* Color picker */}
-        <div className="input-group">
-          <label className="input-label">Color Theme</label>
-          <div className="flex gap-2">
-            {HABIT_COLORS.map((c) => (
-              <button
-                key={c.value}
-                onClick={() => setForm({ ...form, color: c.value })}
-                type="button"
-                style={{
-                  width: 28, height: 28, borderRadius: '50%',
-                  background: c.value,
-                  border: form.color === c.value ? '3px solid var(--text-primary)' : 'none',
-                  cursor: 'pointer',
-                  transform: form.color === c.value ? 'scale(1.1)' : 'none',
-                  transition: 'transform var(--transition-fast)'
-                }}
-                title={c.name}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Icon picker */}
-        <div className="input-group">
-          <label className="input-label">Select Icon</label>
-          <div className="flex gap-2 flex-wrap">
-            {Object.entries(HABIT_ICONS).map(([name, IconComponent]) => (
-              <button
-                key={name}
-                onClick={() => setForm({ ...form, icon: name })}
-                type="button"
-                className={`btn btn-icon btn-ghost ${form.icon === name ? 'nav-item-active' : ''}`}
-                style={{
-                  border: form.icon === name ? '2px solid var(--color-primary)' : '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '6px'
-                }}
-              >
-                <IconComponent size={18} style={{ color: form.color }} />
-              </button>
-            ))}
-          </div>
-        </div>
+        )}
       </Modal>
     </>
   );
-}
-
-// Simple fallback if checksquare or listtodo aren't imported or are overlapping
-function CheckSquare(props: { size: number }) {
-  return <AlertCircle {...props} />;
 }

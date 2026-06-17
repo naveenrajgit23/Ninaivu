@@ -13,12 +13,12 @@ import { useToast } from '../../contexts/ToastContext';
 export default function SettingsPage() {
   const { user, isDemo, signOut, updateProfile } = useAuth();
   const { theme, setTheme } = useTheme();
-  const { memory, subjects, notes, exams, studySessions, expenses, moneyTracker, investments, tasks, goals, ideas, habits, habitCompletions } = useData();
+  const { memory, subjects, notes, exams, studySessions, expenses, moneyTracker, investments, tasks, goals, ideas } = useData();
   const { showToast } = useToast();
   const [fullName, setFullName] = useState(user?.full_name || '');
 
   const handleExportBackup = () => {
-    const data = { memory, subjects, notes, exams, studySessions, expenses, moneyTracker, investments, tasks, goals, ideas, habits, habitCompletions, exportedAt: new Date().toISOString() };
+    const data = { memory, subjects, notes, exams, studySessions, expenses, moneyTracker, investments, tasks, goals, ideas, exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -30,7 +30,7 @@ export default function SettingsPage() {
   };
 
   const MAX_IMPORT_SIZE = 10 * 1024 * 1024; // 10MB limit
-  const VALID_STORE_KEYS = ['memory', 'subjects', 'notes', 'exams', 'studySessions', 'expenses', 'moneyTracker', 'investments', 'goals', 'tasks', 'ideas', 'habits', 'habitCompletions', 'exportedAt'];
+  const VALID_STORE_KEYS = ['memory', 'subjects', 'notes', 'exams', 'studySessions', 'expenses', 'moneyTracker', 'investments', 'goals', 'tasks', 'ideas', 'exportedAt'];
 
   const sanitizeObject = (obj: unknown): unknown => {
     if (obj === null || typeof obj !== 'object') return obj;

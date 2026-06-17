@@ -139,7 +139,7 @@ export interface ToastMessage {
 
 export type SearchResult = {
   id: string;
-  type: 'memory' | 'note' | 'subject' | 'expense' | 'task' | 'goal' | 'idea' | 'habit';
+  type: 'memory' | 'note' | 'subject' | 'expense' | 'task' | 'goal' | 'idea';
   title: string;
   subtitle: string;
   path: string;
@@ -147,14 +147,14 @@ export type SearchResult = {
 
 export type TimerStatus = 'idle' | 'running' | 'paused';
 
+export type HabitCategory = 'health' | 'productivity' | 'learning' | 'fitness' | 'mindfulness' | 'finance' | 'other';
 export type HabitFrequency = 'daily' | 'weekly' | 'monthly';
 
 export interface Habit {
   id: string;
-  user_id?: string;
-  name: string;
+  title: string;
   description: string;
-  category: string;
+  category: HabitCategory;
   icon: string;
   color: string;
   frequency: HabitFrequency;
@@ -168,8 +168,7 @@ export interface Habit {
 
 export interface HabitCompletion {
   id: string;
-  user_id?: string;
   habit_id: string;
-  completed_at: string;
+  completed_date: string;
+  created_at?: string;
 }
-

@@ -2,7 +2,7 @@
 // நினைவு (Ninaivu) — Constants
 // ============================================================
 
-import type { ExpenseCategory, InvestmentType, TaskPriority, TaskStatus, IdeaCategory, MemoryCategory } from '../types';
+import type { ExpenseCategory, InvestmentType, TaskPriority, TaskStatus, IdeaCategory, MemoryCategory, HabitCategory } from '../types';
 
 export const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: 'LayoutDashboard', section: 'Main' },
@@ -11,9 +11,9 @@ export const NAV_ITEMS = [
   { path: '/study', label: 'Study Hub', icon: 'GraduationCap', section: 'Modules' },
   { path: '/finance', label: 'Finance', icon: 'Wallet', section: 'Modules' },
   { path: '/tasks', label: 'Tasks', icon: 'CheckSquare', section: 'Productivity' },
-  { path: '/habits', label: 'Habits', icon: 'Flame', section: 'Productivity' },
   { path: '/goals', label: 'Goals', icon: 'Target', section: 'Productivity' },
   { path: '/ideas', label: 'Ideas', icon: 'Lightbulb', section: 'Productivity' },
+  { path: '/habits', label: 'Habits', icon: 'Activity', section: 'Productivity' },
   { path: '/statistics', label: 'Statistics', icon: 'TrendingUp', section: 'System' },
   { path: '/settings', label: 'Settings', icon: 'Settings', section: 'System' },
 ];
@@ -23,6 +23,7 @@ export const BOTTOM_NAV_ITEMS = [
   { path: '/study', label: 'Study', icon: 'GraduationCap' },
   { path: '/tasks', label: 'Tasks', icon: 'CheckSquare' },
   { path: '/finance', label: 'Finance', icon: 'Wallet' },
+  { path: '/habits', label: 'Habits', icon: 'Activity' },
   { path: '/memory', label: 'Memory', icon: 'Brain' },
 ];
 
@@ -79,3 +80,13 @@ export const DEFAULT_SUBJECTS = [
   { name: 'Computer Science', color: '#10B981', icon: 'Terminal' },
   { name: 'Literature', color: '#EC4899', icon: 'BookOpen' },
 ];
+
+export const HABIT_CATEGORIES: Record<HabitCategory, { label: string; color: string; icon: string }> = {
+  health: { label: 'Health', color: '#EF4444', icon: 'Heart' },
+  productivity: { label: 'Productivity', color: '#3B82F6', icon: 'Zap' },
+  learning: { label: 'Learning', color: '#8B5CF6', icon: 'BookOpen' },
+  fitness: { label: 'Fitness', color: '#F59E0B', icon: 'Activity' },
+  mindfulness: { label: 'Mindfulness', color: '#10B981', icon: 'Wind' },
+  finance: { label: 'Finance', color: '#6366F1', icon: 'DollarSign' },
+  other: { label: 'Other', color: '#64748B', icon: 'Star' },
+};
