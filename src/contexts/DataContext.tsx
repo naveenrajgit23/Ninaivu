@@ -54,7 +54,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setStore(JSON.parse(saved));
       }
     } catch (e) {
-      console.error('Failed to parse local data', e);
+      console.error('Failed to parse local data:', e instanceof Error ? e.message : 'Unknown error');
     }
     setLoading(false);
   }, []);

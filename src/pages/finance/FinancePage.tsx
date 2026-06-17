@@ -281,34 +281,34 @@ export default function FinancePage() {
       {/* Expense Modal */}
       <Modal isOpen={showExpenseForm} onClose={() => setShowExpenseForm(false)} title="Add Expense"
         footer={<><button className="btn btn-secondary" onClick={() => setShowExpenseForm(false)}>Cancel</button><button className="btn btn-primary" onClick={handleAddExpense}>Add</button></>}>
-        <div className="input-group"><label className="input-label">Amount (₹)</label><input className="input" type="number" placeholder="0.00" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })} autoFocus id="expense-amount" /></div>
+        <div className="input-group"><label className="input-label">Amount (₹)</label><input className="input" type="number" placeholder="0.00" min="0.01" step="0.01" max="99999999" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })} autoFocus id="expense-amount" /></div>
         <div className="input-group"><label className="input-label">Category</label><select className="input select" value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value as ExpenseCategory })} id="expense-category">{Object.entries(EXPENSE_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></div>
-        <div className="input-group"><label className="input-label">Description</label><input className="input" placeholder="What was it for?" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} id="expense-desc" /></div>
+        <div className="input-group"><label className="input-label">Description</label><input className="input" placeholder="What was it for?" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} maxLength={200} id="expense-desc" /></div>
         <div className="input-group"><label className="input-label">Date</label><input className="input" type="date" value={expenseForm.expense_date} onChange={(e) => setExpenseForm({ ...expenseForm, expense_date: e.target.value })} id="expense-date" /></div>
       </Modal>
 
       {/* Money Modal */}
       <Modal isOpen={showMoneyForm} onClose={() => setShowMoneyForm(false)} title="Add Money Record"
         footer={<><button className="btn btn-secondary" onClick={() => setShowMoneyForm(false)}>Cancel</button><button className="btn btn-primary" onClick={handleAddMoney}>Add</button></>}>
-        <div className="input-group"><label className="input-label">Person Name</label><input className="input" placeholder="Name" value={moneyForm.person_name} onChange={(e) => setMoneyForm({ ...moneyForm, person_name: e.target.value })} autoFocus id="money-name" /></div>
-        <div className="input-group"><label className="input-label">Amount (₹)</label><input className="input" type="number" placeholder="0.00" value={moneyForm.amount} onChange={(e) => setMoneyForm({ ...moneyForm, amount: e.target.value })} id="money-amount" /></div>
+        <div className="input-group"><label className="input-label">Person Name</label><input className="input" placeholder="Name" value={moneyForm.person_name} onChange={(e) => setMoneyForm({ ...moneyForm, person_name: e.target.value })} autoFocus maxLength={100} id="money-name" /></div>
+        <div className="input-group"><label className="input-label">Amount (₹)</label><input className="input" type="number" placeholder="0.00" min="0.01" step="0.01" max="99999999" value={moneyForm.amount} onChange={(e) => setMoneyForm({ ...moneyForm, amount: e.target.value })} id="money-amount" /></div>
         <div className="grid grid-2 gap-3">
           <div className="input-group"><label className="input-label">Given Date</label><input className="input" type="date" value={moneyForm.given_date} onChange={(e) => setMoneyForm({ ...moneyForm, given_date: e.target.value })} id="money-given" /></div>
           <div className="input-group"><label className="input-label">Due Date</label><input className="input" type="date" value={moneyForm.due_date} onChange={(e) => setMoneyForm({ ...moneyForm, due_date: e.target.value })} id="money-due" /></div>
         </div>
-        <div className="input-group"><label className="input-label">Notes</label><input className="input" placeholder="Optional notes" value={moneyForm.notes} onChange={(e) => setMoneyForm({ ...moneyForm, notes: e.target.value })} id="money-notes" /></div>
+        <div className="input-group"><label className="input-label">Notes</label><input className="input" placeholder="Optional notes" value={moneyForm.notes} onChange={(e) => setMoneyForm({ ...moneyForm, notes: e.target.value })} maxLength={500} id="money-notes" /></div>
       </Modal>
 
       {/* Investment Modal */}
       <Modal isOpen={showInvestmentForm} onClose={() => setShowInvestmentForm(false)} title="Add Investment"
         footer={<><button className="btn btn-secondary" onClick={() => setShowInvestmentForm(false)}>Cancel</button><button className="btn btn-primary" onClick={handleAddInvestment}>Add</button></>}>
-        <div className="input-group"><label className="input-label">Investment Name</label><input className="input" placeholder="e.g., HDFC Index Fund" value={investForm.name} onChange={(e) => setInvestForm({ ...investForm, name: e.target.value })} autoFocus id="invest-name" /></div>
+        <div className="input-group"><label className="input-label">Investment Name</label><input className="input" placeholder="e.g., HDFC Index Fund" value={investForm.name} onChange={(e) => setInvestForm({ ...investForm, name: e.target.value })} autoFocus maxLength={200} id="invest-name" /></div>
         <div className="input-group"><label className="input-label">Type</label><select className="input select" value={investForm.type} onChange={(e) => setInvestForm({ ...investForm, type: e.target.value as InvestmentType })} id="invest-type">{Object.entries(INVESTMENT_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></div>
         <div className="grid grid-2 gap-3">
-          <div className="input-group"><label className="input-label">Invested Amount (₹)</label><input className="input" type="number" placeholder="0.00" value={investForm.invested_amount} onChange={(e) => setInvestForm({ ...investForm, invested_amount: e.target.value })} id="invest-amount" /></div>
+          <div className="input-group"><label className="input-label">Invested Amount (₹)</label><input className="input" type="number" placeholder="0.00" min="0.01" step="0.01" max="99999999" value={investForm.invested_amount} onChange={(e) => setInvestForm({ ...investForm, invested_amount: e.target.value })} id="invest-amount" /></div>
           <div className="input-group"><label className="input-label">Current Value (₹)</label><input className="input" type="number" placeholder="Optional" value={investForm.current_value} onChange={(e) => setInvestForm({ ...investForm, current_value: e.target.value })} id="invest-current" /></div>
         </div>
-        <div className="input-group"><label className="input-label">Notes</label><input className="input" placeholder="Optional notes" value={investForm.notes} onChange={(e) => setInvestForm({ ...investForm, notes: e.target.value })} id="invest-notes" /></div>
+        <div className="input-group"><label className="input-label">Notes</label><input className="input" placeholder="Optional notes" value={investForm.notes} onChange={(e) => setInvestForm({ ...investForm, notes: e.target.value })} maxLength={500} id="invest-notes" /></div>
       </Modal>
     </>
   );

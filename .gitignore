@@ -17,6 +17,10 @@ dist-ssr
 .env.production
 .env.test
 
+# Test scripts (may contain secrets)
+test_*.js
+test_*.ts
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

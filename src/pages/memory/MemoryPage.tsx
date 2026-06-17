@@ -195,7 +195,7 @@ export default function MemoryPage() {
       >
         <div className="input-group">
           <label className="input-label">Title</label>
-          <input className="input" placeholder="e.g., Gmail Account" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} autoFocus id="memory-title" />
+          <input className="input" placeholder="e.g., Gmail Account" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} autoFocus maxLength={200} id="memory-title" />
         </div>
         <div className="input-group">
           <label className="input-label">Category</label>
@@ -207,7 +207,7 @@ export default function MemoryPage() {
         </div>
         <div className="input-group">
           <label className="input-label">Data (key: value, one per line)</label>
-          <textarea className="input textarea" placeholder={"Email: user@example.com\nPassword: xxxxxxxx"} value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} id="memory-data" />
+          <textarea className="input textarea" placeholder={"Email: user@example.com\nPassword: xxxxxxxx"} value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} maxLength={5000} id="memory-data" />
         </div>
 
       </Modal>

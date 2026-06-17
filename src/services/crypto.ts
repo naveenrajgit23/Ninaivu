@@ -4,9 +4,11 @@
 // ============================================================
 
 const ALGO = 'AES-GCM';
-const PBKDF2_ITERATIONS = 100000;
+const PBKDF2_ITERATIONS = 600000;
+const SALT_LENGTH = 16;
+const IV_LENGTH = 12;
 
-async function getPasswordKey(password: string): Promise<CryptoKey> {
+async function getPasswordKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
   const enc = new TextEncoder();
   const keyMaterial = await window.crypto.subtle.importKey(
     'raw',
@@ -15,10 +17,6 @@ async function getPasswordKey(password: string): Promise<CryptoKey> {
     false,
     ['deriveKey']
   );
-
-  // Use a fixed salt for simplicity in this demo. 
-  // In production, salt should be random per user and stored.
-  const salt = enc.encode('ninaivu-salt-v1');
 
   return window.crypto.subtle.deriveKey(
     {
@@ -55,8 +53,10 @@ function base64ToBuffer(base64: string): ArrayBuffer {
 export async function encryptData(data: string, password?: string): Promise<string> {
   if (!password) return data; // Fallback if no password provided (e.g. not sensitive)
   
-  const key = await getPasswordKey(password);
-  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  // Generate random salt and IV for each encryption
+  const salt = window.crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+  const iv = window.crypto.getRandomValues(new Uint8Array(IV_LENGTH));
+  const key = await getPasswordKey(password, salt);
   const enc = new TextEncoder();
 
   const ciphertext = await window.crypto.subtle.encrypt(
@@ -65,10 +65,11 @@ export async function encryptData(data: string, password?: string): Promise<stri
     enc.encode(data)
   );
 
-  // Pack IV and Ciphertext together
-  const packed = new Uint8Array(iv.length + ciphertext.byteLength);
-  packed.set(iv);
-  packed.set(new Uint8Array(ciphertext), iv.length);
+  // Pack: salt + IV + ciphertext
+  const packed = new Uint8Array(SALT_LENGTH + IV_LENGTH + ciphertext.byteLength);
+  packed.set(salt);
+  packed.set(iv, SALT_LENGTH);
+  packed.set(new Uint8Array(ciphertext), SALT_LENGTH + IV_LENGTH);
 
   return bufferToBase64(packed.buffer);
 }
@@ -77,11 +78,14 @@ export async function decryptData(encryptedBase64: string, password?: string): P
   if (!password) return encryptedBase64;
 
   try {
-    const key = await getPasswordKey(password);
     const packed = new Uint8Array(base64ToBuffer(encryptedBase64));
     
-    const iv = packed.slice(0, 12);
-    const ciphertext = packed.slice(12);
+    // Unpack: salt + IV + ciphertext
+    const salt = packed.slice(0, SALT_LENGTH);
+    const iv = packed.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
+    const ciphertext = packed.slice(SALT_LENGTH + IV_LENGTH);
+
+    const key = await getPasswordKey(password, salt);
 
     const decrypted = await window.crypto.subtle.decrypt(
       { name: ALGO, iv },
@@ -91,8 +95,7 @@ export async function decryptData(encryptedBase64: string, password?: string): P
 
     const dec = new TextDecoder();
     return dec.decode(decrypted);
-  } catch (err) {
-    console.error('Decryption failed', err);
+  } catch {
     throw new Error('Invalid password or corrupted data');
   }
 }

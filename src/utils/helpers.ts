@@ -77,5 +77,5 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 export function generateId(): string {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  return crypto.randomUUID();
 }

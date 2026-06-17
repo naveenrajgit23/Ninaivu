@@ -29,6 +29,20 @@ export default function SettingsPage() {
     showToast('Backup exported!', 'success');
   };
 
+  const MAX_IMPORT_SIZE = 10 * 1024 * 1024; // 10MB limit
+  const VALID_STORE_KEYS = ['memory', 'subjects', 'notes', 'exams', 'studySessions', 'expenses', 'moneyTracker', 'investments', 'goals', 'tasks', 'ideas', 'exportedAt'];
+
+  const sanitizeObject = (obj: unknown): unknown => {
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(sanitizeObject);
+    const clean: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+      clean[key] = sanitizeObject(value);
+    }
+    return clean;
+  };
+
   const handleImportBackup = () => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -36,11 +50,37 @@ export default function SettingsPage() {
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
+
+      if (file.size > MAX_IMPORT_SIZE) {
+        showToast('File too large (max 10MB)', 'error');
+        return;
+      }
+
       try {
         const text = await file.text();
-        const data = JSON.parse(text);
-        // Save imported data to localStorage
-        localStorage.setItem('ninaivu-data', JSON.stringify(data));
+        const raw = JSON.parse(text);
+
+        if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+          showToast('Invalid backup format', 'error');
+          return;
+        }
+
+        // Only allow known keys
+        const sanitized: Record<string, unknown> = {};
+        for (const key of VALID_STORE_KEYS) {
+          if (key in raw) {
+            sanitized[key] = sanitizeObject(raw[key]);
+          }
+        }
+
+        // Verify at least one data array exists
+        const hasData = VALID_STORE_KEYS.some(key => key !== 'exportedAt' && Array.isArray(sanitized[key]));
+        if (!hasData) {
+          showToast('No valid data found in backup', 'error');
+          return;
+        }
+
+        localStorage.setItem('ninaivu-data', JSON.stringify(sanitized));
         showToast('Backup imported! Refreshing...', 'success');
         setTimeout(() => window.location.reload(), 1000);
       } catch {
