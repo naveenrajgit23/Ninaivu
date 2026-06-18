@@ -3,18 +3,19 @@
 // ============================================================
 
 import { useState, useMemo } from 'react';
-import { Search, Plus, Trash2, Edit3, Calendar, Check, AlertCircle } from 'lucide-react';
+import { Search, Plus, Trash2, Edit3, Calendar, Check, AlertCircle, Sparkles, Star, Clock } from 'lucide-react';
 import TopBar from '../../components/layout/TopBar';
 import Modal from '../../components/ui/Modal';
 import EmptyState from '../../components/ui/EmptyState';
 import { useData } from '../../contexts/DataContext';
 import { useToast } from '../../contexts/ToastContext';
 import { formatDate } from '../../utils/helpers';
-import { PRIORITY_CONFIG, STATUS_CONFIG } from '../../utils/constants';
+import { PRIORITY_CONFIG } from '../../utils/constants';
+import ProgressRing from '../../components/ui/ProgressRing';
 import type { TaskType, TaskPriority, TaskStatus } from '../../types';
 
 export default function TasksPage() {
-  const { tasks, goals, addItem, updateItem, deleteItem } = useData();
+  const { tasks, addItem, updateItem, deleteItem } = useData();
   const { showToast } = useToast();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<TaskType | 'all'>('all');
@@ -38,6 +39,11 @@ export default function TasksPage() {
     }
     return items;
   }, [tasks, typeFilter, statusFilter, search]);
+
+  const completedCount = tasks.filter((t) => t.status === 'completed').length;
+  const pendingCount = tasks.filter((t) => t.status !== 'completed').length;
+  const totalCount = tasks.length;
+  const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const handleSave = async () => {
     if (!form.title.trim()) return;
@@ -94,58 +100,92 @@ export default function TasksPage() {
 
   return (
     <>
-      <TopBar title="Tasks" subtitle={`${tasks.filter((t) => t.status !== 'completed').length} pending`} />
+      <TopBar title="Tasks" subtitle={`${pendingCount} pending tasks`} />
 
       <div className="page">
-        {/* Search */}
-        <div className="search-bar mb-4">
-          <span className="search-icon"><Search size={18} /></span>
-          <input className="input" style={{ paddingLeft: 'var(--space-10)' }} placeholder="Search tasks..." value={search} onChange={(e) => setSearch(e.target.value)} id="tasks-search" />
-        </div>
-
-        {/* Filters */}
-        <div className="flex gap-2 mb-4" style={{ flexWrap: 'wrap' }}>
-          <div className="tabs" style={{ flex: 1, minWidth: 200 }}>
-            {(['all', 'daily', 'weekly', 'general'] as const).map((t) => (
-              <button key={t} className={`tab ${typeFilter === t ? 'tab-active' : ''}`} onClick={() => setTypeFilter(t)}>
-                {t === 'all' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1)}
-              </button>
-            ))}
+        
+        {/* Progress Banner */}
+        <div className="card animate-fadeInUp mb-6" style={{ padding: 'var(--space-6)', position: 'relative', overflow: 'hidden' }}>
+          <div className="flex flex-wrap items-center gap-8 relative z-10">
+            <div>
+              <div className="text-xs font-semibold mb-3">Today's Progress</div>
+              <ProgressRing progress={progressPct} size={100} strokeWidth={8} color="var(--color-primary)">
+                <div className="flex flex-col items-center">
+                  <span className="text-2xl font-bold">{progressPct}%</span>
+                </div>
+              </ProgressRing>
+            </div>
+            
+            <div className="flex flex-col justify-center flex-1">
+              <div className="flex flex-wrap items-center gap-8 mb-2">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-primary">{pendingCount}</div>
+                  <div className="text-xs text-secondary">Pending</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold">{completedCount}</div>
+                  <div className="text-xs text-secondary">Completed</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 mt-2">
+                <div className="progress flex-1" style={{ height: 6, background: 'var(--bg-secondary)' }}>
+                  <div className="progress-bar" style={{ width: `${progressPct}%`, background: 'var(--color-primary)' }} />
+                </div>
+              </div>
+              <div className="text-xs text-muted mt-2">{pendingCount} of {totalCount} tasks remaining</div>
+            </div>
           </div>
         </div>
 
-        <div className="flex gap-2 mb-6" style={{ flexWrap: 'wrap' }}>
-          {(['all', 'pending', 'in_progress', 'completed'] as const).map((s) => (
-            <button
-              key={s}
-              className={`chip ${statusFilter === s ? 'chip-active' : ''}`}
-              onClick={() => setStatusFilter(s)}
-            >
-              {s === 'all' ? 'All Status' : STATUS_CONFIG[s]?.label || s}
+        {/* Toolbar */}
+        <div className="flex items-center justify-between gap-4 mb-6" style={{ flexWrap: 'wrap' }}>
+          <div className="search-bar" style={{ flex: 1, minWidth: 200, maxWidth: 300 }}>
+            <span className="search-icon"><Search size={16} /></span>
+            <input className="input" style={{ paddingLeft: 'var(--space-10)' }} placeholder="Search tasks..." value={search} onChange={(e) => setSearch(e.target.value)} id="tasks-search" />
+          </div>
+
+          <div className="tabs" style={{ margin: 0, padding: 0, background: 'transparent' }}>
+            <button className={`tab ${statusFilter === 'all' ? 'tab-active' : ''}`} style={{ background: statusFilter === 'all' ? 'var(--color-primary-light)' : 'transparent', color: statusFilter === 'all' ? 'var(--color-primary)' : 'var(--text-secondary)' }} onClick={() => setStatusFilter('all')}>All</button>
+            <button className={`tab ${statusFilter === 'pending' ? 'tab-active' : ''}`} style={{ background: statusFilter === 'pending' ? 'var(--color-primary-light)' : 'transparent', color: statusFilter === 'pending' ? 'var(--color-primary)' : 'var(--text-secondary)' }} onClick={() => setStatusFilter('pending')}>Today</button>
+            <button className={`tab ${statusFilter === 'in_progress' ? 'tab-active' : ''}`} style={{ background: statusFilter === 'in_progress' ? 'var(--color-primary-light)' : 'transparent', color: statusFilter === 'in_progress' ? 'var(--color-primary)' : 'var(--text-secondary)' }} onClick={() => setStatusFilter('in_progress')}>Upcoming</button>
+            <button className={`tab ${statusFilter === 'completed' ? 'tab-active' : ''}`} style={{ background: statusFilter === 'completed' ? 'var(--color-primary-light)' : 'transparent', color: statusFilter === 'completed' ? 'var(--color-primary)' : 'var(--text-secondary)' }} onClick={() => setStatusFilter('completed')}>Completed</button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-sm text-secondary">
+              Priority 
+              <select className="input select" style={{ padding: '4px 24px 4px 8px', minHeight: 32 }} onChange={(e) => setTypeFilter(e.target.value as any)}>
+                <option value="all">All</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+              </select>
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>
+              <Plus size={16} /> Add Task
             </button>
-          ))}
+          </div>
         </div>
 
         {/* Task List */}
         {filtered.length === 0 ? (
           <EmptyState
-            icon={<CheckSquare size={32} />}
-            title="No tasks found"
-            description="Create your first task to get started."
+            icon={<AlertCircle size={32} />}
+            title="✨ Nothing pending here."
+            description="Enjoy your free time or add a new task."
             action={<button className="btn btn-primary" onClick={() => setShowAdd(true)}>Add Task</button>}
           />
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3 mb-6">
             {filtered.map((task) => {
               const priorityCfg = PRIORITY_CONFIG[task.priority];
               return (
-                <div key={task.id} className="card card-interactive animate-fadeInUp" style={{ padding: 'var(--space-3) var(--space-4)' }}>
-                  <div className="flex items-center gap-3">
+                <div key={task.id} className={`card card-interactive animate-fadeInUp task-item-bordered priority-${task.priority}`} style={{ padding: 'var(--space-4)', borderRadius: 'var(--radius-lg)' }}>
+                  <div className="flex items-center gap-4">
                     <button
                       onClick={() => toggleComplete(task.id)}
                       style={{
-                        width: 22, height: 22, borderRadius: 'var(--radius-sm)',
-                        border: `2px solid ${task.status === 'completed' ? 'var(--color-success)' : 'var(--border-color)'}`,
+                        width: 22, height: 22, borderRadius: '50%',
+                        border: `2px solid ${task.status === 'completed' ? 'var(--color-success)' : 'var(--border-strong)'}`,
                         background: task.status === 'completed' ? 'var(--color-success)' : 'transparent',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                         transition: 'all var(--transition-fast)',
@@ -155,41 +195,53 @@ export default function TasksPage() {
                     </button>
 
                     <div className="flex-1 min-w-0">
-                      <div className="list-item-title" style={{ textDecoration: task.status === 'completed' ? 'line-through' : 'none', opacity: task.status === 'completed' ? 0.6 : 1 }}>
+                      <div className="list-item-title text-base" style={{ 
+                        textDecoration: task.status === 'completed' ? 'line-through' : 'none', 
+                        opacity: task.status === 'completed' ? 0.6 : 1,
+                        transition: 'all var(--transition-normal)',
+                        marginBottom: task.description ? '4px' : '0'
+                      }}>
                         {task.title}
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
+                      {task.description && (
+                        <div className="text-sm text-secondary mb-2" style={{ opacity: task.status === 'completed' ? 0.6 : 1 }}>
+                          {task.description}
+                        </div>
+                      )}
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
                         {task.due_date && (
-                          <span className="text-xs text-muted flex items-center gap-1">
-                            <Calendar size={12} /> {formatDate(task.due_date)}
+                          <span className="text-xs text-primary font-medium flex items-center gap-1" style={{ background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '4px' }}>
+                            <Calendar size={12} className="text-primary" /> {formatDate(task.due_date)}
                           </span>
                         )}
-                        <span className="badge" style={{ background: priorityCfg.bgColor, color: priorityCfg.color, fontSize: '10px' }}>
+                        <span className="text-xs font-semibold flex items-center gap-1" style={{ background: `${priorityCfg.bgColor}30`, color: priorityCfg.color, padding: '2px 8px', borderRadius: '4px' }}>
                           {priorityCfg.label}
                         </span>
-                        {task.type !== 'general' && <span className="badge badge-neutral" style={{ fontSize: '10px' }}>{task.type}</span>}
+                        <span className="text-xs text-secondary flex items-center gap-1">
+                          <Clock size={12} /> 30 mins
+                        </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1">
-                      <button className="btn btn-icon btn-ghost" onClick={() => startEdit(task.id)} style={{ padding: 4 }}>
-                        <Edit3 size={15} />
-                      </button>
-                      <button className="btn btn-icon btn-ghost" onClick={() => { deleteItem('tasks', task.id); showToast('Task deleted', 'info'); }} style={{ padding: 4 }}>
-                        <Trash2 size={15} />
-                      </button>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex items-center gap-1">
+                        <button className="btn btn-icon btn-ghost text-muted" style={{ padding: 4 }}>
+                          <Star size={16} />
+                        </button>
+                        <button className="btn btn-icon btn-ghost text-muted" onClick={() => startEdit(task.id)} style={{ padding: 4 }}>
+                          <Edit3 size={16} />
+                        </button>
+                        <button className="btn btn-icon btn-ghost text-muted" onClick={() => { deleteItem('tasks', task.id); showToast('Task deleted', 'info'); }} style={{ padding: 4 }}>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               );
             })}
           </div>
-        )}
-
-        <button className="fab" onClick={() => setShowAdd(true)} id="fab-add-task">
-          <Plus size={24} />
-        </button>
-      </div>
+        )}      </div>
 
       {/* Add/Edit Modal */}
       <Modal isOpen={showAdd} onClose={resetForm} title={editId ? 'Edit Task' : 'New Task'}
@@ -238,23 +290,7 @@ export default function TasksPage() {
             <input className="input" type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} id="task-due" />
           </div>
         </div>
-        {goals.length > 0 && (
-          <div className="input-group">
-            <label className="input-label">Link to Goal (optional)</label>
-            <select className="input select" value={form.goal_id} onChange={(e) => setForm({ ...form, goal_id: e.target.value })} id="task-goal">
-              <option value="">None</option>
-              {goals.filter((g) => g.status === 'active').map((g) => (
-                <option key={g.id} value={g.id}>{g.title}</option>
-              ))}
-            </select>
-          </div>
-        )}
       </Modal>
     </>
   );
-}
-
-// Re-export CheckSquare for the empty state
-function CheckSquare(props: { size: number }) {
-  return <AlertCircle {...props} />;
 }

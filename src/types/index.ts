@@ -11,6 +11,9 @@ export interface User {
   avatar_url?: string;
   theme?: Theme;
   app_lock_enabled?: boolean;
+  streak_current?: number;
+  streak_best?: number;
+  last_active_date?: string;
 }
 
 export type MemoryCategory = 'personal' | 'other';
@@ -170,5 +173,16 @@ export interface HabitCompletion {
   id: string;
   habit_id: string;
   completed_date: string;
+  created_at?: string;
+}
+
+export interface WeeklySummary {
+  id: string;
+  user_id: string;
+  week_start_date: string;
+  tasks_completed: number;
+  habits_completed: number;
+  xp_gained: number;
+  focus_minutes: number;
   created_at?: string;
 }

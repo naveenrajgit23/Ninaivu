@@ -74,11 +74,15 @@ export default function StatisticsPage() {
 
   return (
     <>
-      <TopBar title="Statistics" subtitle="Your productivity overview" />
+      <TopBar title="Statistics" subtitle="Your life progress over time" />
 
       <div className="page">
+        <div className="card mb-6 animate-fadeInUp" style={{ padding: 'var(--space-4)' }}>
+          <p className="text-secondary text-sm">✨ Consistent effort compounds over time. You've completed {completedTasks} tasks and spent {formatCurrency(totalExpenses)}. Keep building momentum.</p>
+        </div>
+
         {/* Overview Cards */}
-        <div className="grid grid-3 mb-6 animate-fadeInUp">
+        <div className="grid grid-3 mb-6 animate-fadeInUp stagger-1">
           <div className="card card-gradient">
             <div className="stat-card">
               <div className="stat-card-icon" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>

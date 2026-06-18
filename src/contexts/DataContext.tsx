@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode, useCall
 import { supabase } from '../services/supabase';
 import { useAuth } from './AuthContext';
 import { generateId } from '../utils/helpers';
-import type { MemoryItem, Subject, Note, Exam, StudySession, Expense, MoneyTracker, Investment, Goal, Task, Idea, Habit, HabitCompletion } from '../types';
+import type { MemoryItem, Subject, Note, Exam, StudySession, Expense, MoneyTracker, Investment, Goal, Task, Idea, Habit, HabitCompletion, WeeklySummary } from '../types';
 
 interface Store {
   memory: MemoryItem[];
@@ -18,12 +18,13 @@ interface Store {
   ideas: Idea[];
   habits: Habit[];
   habitCompletions: HabitCompletion[];
+  weeklySummaries: WeeklySummary[];
 }
 
 const INITIAL_STORE: Store = {
   memory: [], subjects: [], notes: [], exams: [], studySessions: [],
   expenses: [], moneyTracker: [], investments: [], goals: [], tasks: [], ideas: [],
-  habits: [], habitCompletions: []
+  habits: [], habitCompletions: [], weeklySummaries: []
 };
 
 type TableName = keyof Store;
@@ -32,7 +33,7 @@ const TABLE_MAP: Record<TableName, string> = {
   memory: 'memory', subjects: 'subjects', notes: 'notes', exams: 'exams',
   studySessions: 'study_sessions', expenses: 'expenses', moneyTracker: 'money_tracker',
   investments: 'investments', goals: 'goals', tasks: 'tasks', ideas: 'ideas',
-  habits: 'habits', habitCompletions: 'habit_completions'
+  habits: 'habits', habitCompletions: 'habit_completions', weeklySummaries: 'weekly_summaries'
 };
 
 interface DataContextType extends Store {

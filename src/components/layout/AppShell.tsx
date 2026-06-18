@@ -5,7 +5,6 @@
 import { Outlet } from 'react-router';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
-import TopBar from './TopBar';
 import ToastContainer from '../ui/ToastContainer';
 import { LayoutProvider, useLayout } from '../../contexts/LayoutContext';
 

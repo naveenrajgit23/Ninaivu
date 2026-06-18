@@ -71,6 +71,8 @@ export default function Sidebar() {
         ))}
       </nav>
 
+
+
       {/* Footer — collapse toggle */}
       <div className="sidebar-footer">
         <button

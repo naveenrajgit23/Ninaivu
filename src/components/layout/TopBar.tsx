@@ -1,13 +1,14 @@
 // ============================================================
-// நினைவு (Ninaivu) — Top Bar v2
-// Glassmorphism header with search, theme, and avatar
+// நினைவு (Ninaivu) — Top Bar v3
 // ============================================================
 
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Search, Moon, Sun, Menu } from 'lucide-react';
+import { Search, Moon, Sun, Bell, Menu } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLayout } from '../../contexts/LayoutContext';
+import { useToast } from '../../contexts/ToastContext';
 import { getInitials } from '../../utils/helpers';
 
 interface TopBarProps {
@@ -20,7 +21,18 @@ export default function TopBar({ title, subtitle, showSearch = true }: TopBarPro
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
   const { toggleSidebar } = useLayout();
+  const { showToast } = useToast();
   const navigate = useNavigate();
+  const [hasNotifications, setHasNotifications] = useState(true);
+
+  const handleNotificationClear = () => {
+    if (hasNotifications) {
+      setHasNotifications(false);
+      showToast('All notifications marked as read.', 'success');
+    } else {
+      showToast('No new notifications.', 'info');
+    }
+  };
 
   return (
     <header className="topbar" id="topbar">
@@ -61,6 +73,26 @@ export default function TopBar({ title, subtitle, showSearch = true }: TopBarPro
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
+
+        {/* Bell notification */}
+        <div style={{ position: 'relative' }}>
+          <button
+            className="btn btn-icon btn-ghost"
+            aria-label="Notifications"
+            id="btn-notifications"
+            onClick={handleNotificationClear}
+          >
+            <Bell size={18} />
+          </button>
+          {hasNotifications && (
+            <span style={{
+              position: 'absolute', top: '2px', right: '2px',
+              width: '8px', height: '8px', borderRadius: '50%',
+              background: 'var(--color-error)',
+              border: '1.5px solid var(--bg-card)',
+            }} />
+          )}
+        </div>
 
         <div
           className="avatar avatar-sm avatar-interactive"

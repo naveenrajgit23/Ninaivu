@@ -12,8 +12,8 @@ export const NAV_ITEMS = [
   { path: '/finance', label: 'Finance', icon: 'Wallet', section: 'Modules' },
   { path: '/tasks', label: 'Tasks', icon: 'CheckSquare', section: 'Productivity' },
   { path: '/goals', label: 'Goals', icon: 'Target', section: 'Productivity' },
-  { path: '/ideas', label: 'Ideas', icon: 'Lightbulb', section: 'Productivity' },
   { path: '/habits', label: 'Habits', icon: 'Activity', section: 'Productivity' },
+  { path: '/ideas', label: 'Ideas', icon: 'Lightbulb', section: 'Productivity' },
   { path: '/statistics', label: 'Statistics', icon: 'TrendingUp', section: 'System' },
   { path: '/settings', label: 'Settings', icon: 'Settings', section: 'System' },
 ];

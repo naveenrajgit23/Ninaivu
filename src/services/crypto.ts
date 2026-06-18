@@ -21,7 +21,7 @@ async function getPasswordKey(password: string, salt: Uint8Array): Promise<Crypt
   return window.crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt,
+      salt: salt as any,
       iterations: PBKDF2_ITERATIONS,
       hash: 'SHA-256'
     },

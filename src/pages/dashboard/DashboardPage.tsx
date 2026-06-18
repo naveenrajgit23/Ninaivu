@@ -1,501 +1,401 @@
-// ============================================================
-// நினைவு (Ninaivu) — Dashboard Page v2
-// Hero banner, quick actions, rich sections
-// ============================================================
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  CheckSquare, Clock, GraduationCap, AlertCircle,
-  Plus, Wallet, StickyNote, Lightbulb, TrendingUp,
-  ArrowRight, Calendar, Activity, CheckCircle2, Circle,
-  Zap, Target, BookOpen, Flame
+  Wallet, BookOpen, Flame, ChevronRight, Circle, Check, Search, Bell, Star, Target
 } from 'lucide-react';
-import TopBar from '../../components/layout/TopBar';
-import Modal from '../../components/ui/Modal';
+import ProgressRing from '../../components/ui/ProgressRing';
+import TaskCompletionModal from '../../components/ui/TaskCompletionModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { useToast } from '../../contexts/ToastContext';
-import {
-  getGreeting, formatDate, formatCurrency, isToday, isWithinDays
-} from '../../utils/helpers';
-
-const GREETING_EMOJIS: Record<string, string> = {
-  'Good morning': '🌅',
-  'Good afternoon': '☀️',
-  'Good evening': '🌙',
-  'Good night': '🌙',
-};
-
-function getGreetingEmoji(greeting: string): string {
-  for (const [key, emoji] of Object.entries(GREETING_EMOJIS)) {
-    if (greeting.startsWith(key)) return emoji;
-  }
-  return '👋';
-}
-
-const todayLabel = () => {
-  return new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
-};
-
-const todayStr = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+import { getGreeting, isToday } from '../../utils/helpers';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { tasks, exams, expenses, goals, habits, habitCompletions, addItem } = useData();
+  const { tasks, goals, habits, habitCompletions, expenses, studySessions, updateItem, addItem, deleteItem } = useData();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  const [showTaskModal, setShowTaskModal] = useState(false);
-  const [showExpenseModal, setShowExpenseModal] = useState(false);
-  const [showNoteModal, setShowNoteModal] = useState(false);
-  const [showIdeaModal, setShowIdeaModal] = useState(false);
+  // Modal & Notifications State
+  const [completedTaskData, setCompletedTaskData] = useState<{name: string, completed: number, total: number, allDone: boolean} | null>(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(3);
 
-  const [quickTask, setQuickTask] = useState('');
-  const [quickExpense, setQuickExpense] = useState({ amount: '', category: 'food', description: '' });
-  const [quickNote, setQuickNote] = useState({ title: '', content: '' });
-  const [quickIdea, setQuickIdea] = useState({ title: '', category: 'app' });
-
-  const today = todayStr();
+  const today = new Date().toISOString().split('T')[0];
   const greeting = getGreeting();
+  // We want the format "Thursday, June 18, 2026"
+  const dateStr = new Intl.DateTimeFormat('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date());
 
-  // Derived data
-  const pendingTasks = tasks.filter((t) => t.status === 'pending');
-  const todayTasks = tasks.filter((t) => t.due_date && isToday(t.due_date) && t.status !== 'completed');
-  const upcomingExams = exams.filter((e) => isWithinDays(e.exam_date, 30));
-  const activeGoals = goals.filter((g) => g.status === 'active');
-
-  const thisMonthExpenses = expenses
-    .filter((e) => {
-      const d = new Date(e.expense_date);
-      const now = new Date();
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    })
-    .reduce((sum, e) => sum + Number(e.amount), 0);
-
+  // Derived Data
   const activeHabits = habits || [];
   const todaysCompletions = (habitCompletions || []).filter(c => c.completed_date === today);
   const completedHabitsCount = todaysCompletions.length;
-  const habitProgress = activeHabits.length > 0
-    ? Math.round((completedHabitsCount / activeHabits.length) * 100)
-    : 0;
 
-  // Quick action handlers
-  const handleAddQuickTask = async () => {
-    if (!quickTask.trim()) return;
-    await addItem('tasks', {
-      title: quickTask, description: '', type: 'general', priority: 'medium',
-      status: 'pending', due_date: new Date().toISOString(), reminder_at: null, completed_at: null, goal_id: null,
-    });
-    setQuickTask(''); setShowTaskModal(false);
-    showToast('Task added!', 'success');
+  const todayTasksAll = tasks.filter(t => t.due_date && isToday(t.due_date));
+  const todayCompletedTasks = todayTasksAll.filter(t => t.status === 'completed');
+  const pendingTasks = todayTasksAll.filter(t => t.status !== 'completed').slice(0, 3);
+  
+  const activeGoals = goals.filter(g => g.status === 'active').slice(0, 2);
+  
+  const todayExpenses = (expenses || []).filter(e => isToday(e.expense_date)).reduce((sum, e) => sum + Number(e.amount), 0);
+  const todayStudyTime = (studySessions || []).filter(s => s.started_at && isToday(s.started_at)).reduce((sum, s) => sum + s.duration_minutes, 0);
+
+  const totalDailyItems = todayTasksAll.length + activeHabits.length;
+  const totalCompletedItems = todayCompletedTasks.length + completedHabitsCount;
+  const dailyProgressPct = totalDailyItems > 0 ? Math.round((totalCompletedItems / totalDailyItems) * 100) : 0;
+
+  const todaysWins = [
+    ...todayCompletedTasks.map(t => ({ id: t.id, title: t.title })),
+    ...todaysCompletions.map(c => {
+       const h = activeHabits.find(h => h.id === c.habit_id);
+       return { id: c.id, title: h?.title || 'Habit' };
+    })
+  ];
+
+  // Helper to get local date string YYYY-MM-DD
+  const getLocalDateString = (d: Date = new Date()) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
-  const handleAddQuickExpense = async () => {
-    if (!quickExpense.amount) return;
-    await addItem('expenses', {
-      amount: parseFloat(quickExpense.amount),
-      category: quickExpense.category as 'food' | 'travel' | 'education' | 'shopping' | 'other',
-      description: quickExpense.description,
-      expense_date: new Date().toISOString().split('T')[0],
-    });
-    setQuickExpense({ amount: '', category: 'food', description: '' });
-    setShowExpenseModal(false);
-    showToast('Expense added!', 'success');
+  // Dynamic habit streak calculation
+  const calculateStreak = (habitId: string) => {
+    const dates = (habitCompletions || [])
+      .filter(c => c.habit_id === habitId)
+      .map(c => c.completed_date)
+      .sort((a, b) => b.localeCompare(a));
+    
+    if (dates.length === 0) return 0;
+    
+    let current = 0;
+    const dateSet = new Set(dates);
+    let checkDate = new Date();
+    checkDate.setHours(0,0,0,0);
+    
+    if (dateSet.has(getLocalDateString(checkDate))) {
+      current++;
+      checkDate.setDate(checkDate.getDate() - 1);
+      while(dateSet.has(getLocalDateString(checkDate))) {
+        current++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+    } else {
+      checkDate.setDate(checkDate.getDate() - 1);
+      while(dateSet.has(getLocalDateString(checkDate))) {
+        current++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+    }
+    return current;
   };
 
-  const handleAddQuickNote = async () => {
-    if (!quickNote.title.trim()) return;
-    await addItem('notes', { title: quickNote.title, content: quickNote.content, subject_id: null, type: 'note', tags: [] });
-    setQuickNote({ title: '', content: '' }); setShowNoteModal(false);
-    showToast('Note saved!', 'success');
+  const bestOverallStreak = activeHabits.reduce((max, h) => {
+    const s = calculateStreak(h.id);
+    return s > max ? s : max;
+  }, 0);
+
+  // Handlers
+  const handleTaskToggle = async (id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    const newStatus = task.status === 'completed' ? 'pending' : 'completed';
+    await updateItem('tasks', id, { status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : null });
+    
+    if (newStatus === 'completed') {
+      const newCompletedCount = todayCompletedTasks.length + 1;
+      setCompletedTaskData({
+        name: task.title,
+        completed: newCompletedCount,
+        total: todayTasksAll.length,
+        allDone: newCompletedCount === todayTasksAll.length && todayTasksAll.length > 0
+      });
+    }
   };
 
-  const handleAddQuickIdea = async () => {
-    if (!quickIdea.title.trim()) return;
-    await addItem('ideas', {
-      title: quickIdea.title, description: '',
-      category: quickIdea.category as 'app' | 'business' | 'project' | 'research',
-      tags: [], is_favorite: false,
-    });
-    setQuickIdea({ title: '', category: 'app' }); setShowIdeaModal(false);
-    showToast('Idea saved!', 'success');
+  const handleHabitToggle = async (habitId: string) => {
+    const todayStr = getLocalDateString(new Date());
+    const existing = (habitCompletions || []).find(c => c.habit_id === habitId && c.completed_date === todayStr);
+    if (existing) {
+      await deleteItem('habitCompletions', existing.id);
+      showToast('Habit completion undone', 'info');
+    } else {
+      await addItem('habitCompletions', { habit_id: habitId, completed_date: todayStr });
+      showToast('Habit marked complete! 🎉', 'success');
+    }
+  };
+
+  const handleNotificationClear = () => {
+    if (unreadNotifications > 0) {
+      setUnreadNotifications(0);
+      showToast('All notifications marked as read.', 'success');
+    } else {
+      showToast('No new notifications.', 'info');
+    }
   };
 
   return (
     <>
-      <TopBar title={greeting} subtitle={formatDate(new Date().toISOString())} />
-
-      <div className="page">
-
-        {/* ── Hero Banner ── */}
-        <div className="hero-banner animate-fadeInUp">
-          <div className="hero-date-pill">
-            <Calendar size={12} />
-            {todayLabel()}
-          </div>
-          <h2 className="hero-greeting">
-            {getGreetingEmoji(greeting)} {user?.full_name ? `Hey, ${user.full_name.split(' ')[0]}!` : 'Welcome back!'}
-          </h2>
-          <p className="hero-subtext">
-            {pendingTasks.length > 0
-              ? `You have ${pendingTasks.length} pending task${pendingTasks.length > 1 ? 's' : ''}. Let's get things done!`
-              : 'All caught up! Have a great day. ✨'}
-          </p>
-          <div className="hero-stats-row" style={{ marginTop: 'var(--space-5)' }}>
-            <div className="hero-stat-chip">
-              <CheckSquare size={14} />
-              <span><strong>{pendingTasks.length}</strong> tasks</span>
+      <div className="page" style={{ paddingBottom: 'var(--space-12)' }}>
+        
+                {/* ── Minimal Hero Section ── */}
+        <div style={{ marginBottom: 'var(--space-8)' }}>
+          <div className="dashboard-header-wrapper" style={{ marginBottom: 'var(--space-4)' }}>
+            <div>
+              <h1 style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 'bold', marginBottom: 'var(--space-1)', color: 'var(--text-primary)' }}>
+                {greeting}, {user?.full_name?.split(' ')[0] || 'User'} <span style={{color: '#F59E0B'}}>☀️</span>
+              </h1>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-md)' }}>{dateStr}</p>
             </div>
-            {activeHabits.length > 0 && (
-              <div className="hero-stat-chip">
-                <Flame size={14} />
-                <span><strong>{completedHabitsCount}/{activeHabits.length}</strong> habits</span>
-              </div>
-            )}
-            <div className="hero-stat-chip">
-              <TrendingUp size={14} />
-              <span><strong>{activeGoals.length}</strong> goals</span>
-            </div>
-            <div className="hero-stat-chip">
-              <Wallet size={14} />
-              <span><strong>{formatCurrency(thisMonthExpenses)}</strong> spent</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Quick Actions ── */}
-        <div className="animate-fadeInUp stagger-1" style={{ marginBottom: 'var(--space-6)' }}>
-          <div className="section-header">
-            <span className="section-title">
-              <Zap size={16} style={{ color: 'var(--color-warning)' }} />
-              Quick Add
-            </span>
-          </div>
-          <div className="quick-actions-row">
-            <button className="quick-action-btn" onClick={() => setShowTaskModal(true)} id="qa-add-task">
-              <div className="quick-action-icon" style={{ background: 'var(--color-info-light)', color: 'var(--color-info)' }}>
-                <CheckSquare size={20} />
-              </div>
-              Task
-            </button>
-            <button className="quick-action-btn" onClick={() => setShowExpenseModal(true)} id="qa-add-expense">
-              <div className="quick-action-icon" style={{ background: 'var(--color-success-light)', color: 'var(--color-success)' }}>
-                <Wallet size={20} />
-              </div>
-              Expense
-            </button>
-            <button className="quick-action-btn" onClick={() => setShowNoteModal(true)} id="qa-add-note">
-              <div className="quick-action-icon" style={{ background: 'var(--color-warning-light)', color: 'var(--color-warning)' }}>
-                <StickyNote size={20} />
-              </div>
-              Note
-            </button>
-            <button className="quick-action-btn" onClick={() => setShowIdeaModal(true)} id="qa-add-idea">
-              <div className="quick-action-icon" style={{ background: 'var(--color-secondary-light)', color: 'var(--color-secondary)' }}>
-                <Lightbulb size={20} />
-              </div>
-              Idea
-            </button>
-            <button className="quick-action-btn" onClick={() => navigate('/study')}>
-              <div className="quick-action-icon" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
-                <BookOpen size={20} />
-              </div>
-              Study
-            </button>
-            <button className="quick-action-btn" onClick={() => navigate('/goals')}>
-              <div className="quick-action-icon" style={{ background: 'var(--color-error-light)', color: 'var(--color-error)' }}>
-                <Target size={20} />
-              </div>
-              Goal
-            </button>
-          </div>
-        </div>
-
-        {/* ── Today's Habits ── */}
-        {activeHabits.length > 0 && (
-          <section className="animate-fadeInUp stagger-2" style={{ marginBottom: 'var(--space-6)' }}>
-            <div className="section-header">
-              <span className="section-title">
-                <Activity size={16} style={{ color: 'var(--color-primary)' }} />
-                Today's Habits
-              </span>
-              <button className="section-link" onClick={() => navigate('/habits')}>
-                View all <ArrowRight size={14} />
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+              <button className="btn btn-icon" style={{ background: 'transparent', color: 'var(--text-secondary)' }}>
+                <Search size={20} />
               </button>
-            </div>
-            <div className="card">
-              {/* Progress Bar */}
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm text-secondary">
-                  {completedHabitsCount} of {activeHabits.length} completed
-                </span>
-                <span className="text-sm font-bold" style={{ color: 'var(--color-primary)' }}>
-                  {habitProgress}%
-                </span>
+              <div style={{ position: 'relative' }}>
+                <button onClick={handleNotificationClear} className="btn btn-icon" style={{ background: 'transparent', color: 'var(--text-secondary)' }}>
+                  <Bell size={20} />
+                </button>
+                {unreadNotifications > 0 && (
+                  <span style={{
+                    position: 'absolute', top: '0', right: '0', background: 'var(--color-error)', color: 'white', 
+                    fontSize: '10px', fontWeight: 'bold', width: '16px', height: '16px', borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}>{unreadNotifications}</span>
+                )}
               </div>
-              <div className="progress mb-4">
-                <div className="progress-bar" style={{ width: `${habitProgress}%` }} />
-              </div>
-              <div className="grid sm-grid-2" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-2)' }}>
-                {activeHabits.slice(0, 4).map(habit => {
-                  const isCompleted = todaysCompletions.some(c => c.habit_id === habit.id);
-                  return (
-                    <div
-                      key={habit.id}
-                      className="flex items-center gap-2"
-                      style={{
-                        padding: 'var(--space-2) var(--space-3)',
-                        borderRadius: 'var(--radius-md)',
-                        background: isCompleted ? 'var(--color-success-light)' : 'var(--bg-secondary)',
-                        border: `1px solid ${isCompleted ? 'rgba(34,197,94,0.2)' : 'var(--border-subtle)'}`,
-                        transition: 'all var(--transition-fast)',
-                      }}
-                    >
-                      {isCompleted
-                        ? <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
-                        : <Circle size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                      }
-                      <span className={`text-xs truncate ${isCompleted ? 'line-through text-muted' : ''}`}>
-                        {habit.title}
-                      </span>
-                    </div>
-                  );
-                })}
+              <div style={{
+                width: '36px', height: '36px', borderRadius: '50%', background: 'var(--color-secondary)',
+                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold',
+                cursor: 'pointer'
+              }}>
+                {user?.full_name?.charAt(0).toUpperCase() || 'U'}
               </div>
             </div>
-          </section>
-        )}
+          </div>
 
-        {/* ── Today's Tasks ── */}
-        <section className="animate-fadeInUp stagger-3" style={{ marginBottom: 'var(--space-6)' }}>
-          <div className="section-header">
-            <span className="section-title">
-              <CheckSquare size={16} style={{ color: 'var(--color-info)' }} />
-              Today's Tasks
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border-subtle)', margin: 'var(--space-6) 0' }} />
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            <div>
+              <span style={{ fontSize: 'var(--font-size-3xl)', fontWeight: 'bold', color: 'var(--color-primary)', lineHeight: 1 }}>
+                {dailyProgressPct}% Complete
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', padding: '6px 12px', borderRadius: 'var(--radius-full)', fontSize: 'var(--font-size-sm)', fontWeight: '500', color: 'var(--text-primary)' }}>
+                <span>🔥</span> {todaysWins.length} win{todaysWins.length !== 1 && 's'} today
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', padding: '6px 12px', borderRadius: 'var(--radius-full)', fontSize: 'var(--font-size-sm)', fontWeight: '500', color: 'var(--text-primary)' }}>
+                <span style={{ color: 'var(--color-primary)' }}>✓</span> {todayCompletedTasks.length} task{todayCompletedTasks.length !== 1 && 's'} completed
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', padding: '6px 12px', borderRadius: 'var(--radius-full)', fontSize: 'var(--font-size-sm)', fontWeight: '500', color: 'var(--text-primary)' }}>
+                <span>🎯</span> {activeHabits.length} active habit{activeHabits.length !== 1 && 's'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', padding: '6px 12px', borderRadius: 'var(--radius-full)', fontSize: 'var(--font-size-sm)', fontWeight: '500', color: 'var(--text-primary)' }}>
+                <span>📖</span> {Math.floor(todayStudyTime / 60)}h {todayStudyTime % 60}m study
+              </div>
+            </div>
+
+            <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)', fontStyle: 'italic', marginTop: 'var(--space-2)' }}>
+              Small wins build momentum.
+            </p>
+          </div>
+
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border-subtle)', margin: 'var(--space-6) 0 var(--space-8)' }} />
+        </div>
+        <div className="dashboard-main-grid">
+          {/* Today's Wins */}
+          <div className="card animate-fadeInUp flex-col-card stagger-1" style={{ position: 'relative' }}>
+             <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 'bold', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              🏆 Today's Wins
+             </h2>
+             <span style={{ position: 'absolute', top: 'var(--space-5)', right: 'var(--space-5)', background: 'var(--color-success-light)', color: 'var(--color-success)', padding: '2px 8px', borderRadius: '12px', fontSize: 'var(--font-size-xs)', fontWeight: 'bold' }}>
+               {todaysWins.length}
+             </span>
+             <div style={{ flex: 1 }}>
+               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+                 {todaysWins.slice(0, 3).map((win, i) => (
+                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-primary)' }}>
+                     <div style={{ background: 'var(--color-success)', borderRadius: '50%', padding: '2px', color: 'white' }}>
+                       <Check size={14} />
+                     </div>
+                     <span>{win.title}</span>
+                   </div>
+                 ))}
+                 {todaysWins.length === 0 && <p style={{color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)'}}>Complete tasks to see wins here.</p>}
+               </div>
+             </div>
+             <div style={{ fontWeight: '500', color: 'var(--color-success)', background: 'var(--color-success-light)', padding: 'var(--space-3)', margin: '0 calc(-1 * var(--space-5)) calc(-1 * var(--space-5))', borderBottomLeftRadius: 'var(--radius-lg)', borderBottomRightRadius: 'var(--radius-lg)', marginTop: 'auto' }}>
+               {todaysWins.length} wins today 🎉
+             </div>
+          </div>
+
+          {/* Today's Tasks */}
+          <div className="card animate-fadeInUp flex-col-card stagger-2" style={{ position: 'relative' }}>
+            <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 'bold', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Check size={18} color="var(--color-primary)" /> Today's Tasks
+            </h2>
+            <span style={{ position: 'absolute', top: 'var(--space-5)', right: 'var(--space-5)', background: 'var(--color-primary-light)', color: 'var(--color-primary)', padding: '2px 8px', borderRadius: '12px', fontSize: 'var(--font-size-xs)', fontWeight: 'bold' }}>
+              {todayTasksAll.length}
             </span>
-            <button className="section-link" onClick={() => navigate('/tasks')}>
-              View all <ArrowRight size={14} />
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+              {todayTasksAll.length === 0 ? (
+                <p style={{ color: 'var(--text-secondary)', padding: 'var(--space-2) 0', fontSize: 'var(--font-size-sm)' }}>No tasks scheduled for today.</p>
+              ) : pendingTasks.length > 0 ? pendingTasks.map(t => (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-3) 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <button onClick={() => handleTaskToggle(t.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
+                      <Circle size={20} color="var(--text-muted)" />
+                    </button>
+                    <span style={{ fontSize: 'var(--font-size-sm)' }}>{t.title}</span>
+                  </div>
+                  {t.priority === 'medium' && <span style={{ background: 'rgba(255, 140, 0, 0.1)', color: '#FF8C00', fontSize: '9px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px' }}>MEDIUM</span>}
+                  {t.priority === 'low' && <span style={{ background: 'var(--color-info-light)', color: 'var(--color-info)', fontSize: '9px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px' }}>LOW</span>}
+                  {t.priority === 'high' && <span style={{ background: 'var(--color-error-light)', color: 'var(--color-error)', fontSize: '9px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px' }}>HIGH</span>}
+                </div>
+              )) : (
+                <p style={{ color: 'var(--text-secondary)', padding: 'var(--space-2) 0', fontSize: 'var(--font-size-sm)' }}>All tasks completed! 🎉</p>
+              )}
+            </div>
+            
+            <button 
+              onClick={() => navigate('/tasks')}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', color: 'var(--color-primary)', fontWeight: '600', padding: 'var(--space-3) 0 0 0', cursor: 'pointer', alignSelf: 'flex-start', fontSize: 'var(--font-size-sm)', marginTop: 'auto' }}
+            >
+              View All Tasks <ChevronRight size={16} />
             </button>
           </div>
 
-          {todayTasks.length === 0 ? (
-            <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
-              <Clock size={28} style={{ color: 'var(--text-muted)', margin: '0 auto var(--space-3)' }} />
-              <p className="text-sm text-muted">No tasks due today. You're all clear! 🎉</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {todayTasks.slice(0, 5).map((task) => {
-                const priorityColors: Record<string, string> = {
-                  high: 'var(--color-error)',
-                  medium: 'var(--color-warning)',
-                  low: 'var(--color-success)',
-                };
-                const priorityBg: Record<string, string> = {
-                  high: 'var(--color-error-light)',
-                  medium: 'var(--color-warning-light)',
-                  low: 'var(--color-success-light)',
-                };
+          {/* Habits */}
+          <div className="card animate-fadeInUp flex-col-card stagger-2" style={{ position: 'relative' }}>
+            <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 'bold', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              🔥 Habits
+            </h2>
+            <span style={{ position: 'absolute', top: 'var(--space-5)', right: 'var(--space-5)', background: 'rgba(255, 140, 0, 0.1)', color: '#FF8C00', padding: '4px 10px', borderRadius: '12px', fontSize: 'var(--font-size-xs)', fontWeight: 'bold' }}>
+              {bestOverallStreak} Day Streak
+            </span>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+              {activeHabits.slice(0, 3).map((h, i) => {
+                const isDone = todaysCompletions.some(c => c.habit_id === h.id);
                 return (
-                  <div
-                    key={task.id}
-                    className="card card-interactive"
-                    style={{ padding: 'var(--space-3) var(--space-4)', borderLeft: `3px solid ${priorityColors[task.priority]}` }}
-                    onClick={() => navigate('/tasks')}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div style={{
-                        width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                        background: priorityColors[task.priority],
-                        boxShadow: `0 0 6px ${priorityColors[task.priority]}80`,
-                      }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="list-item-title">{task.title}</div>
-                        {task.due_date && (
-                          <div className="list-item-subtitle">
-                            <Calendar size={10} />
-                            {formatDate(task.due_date, { hour: '2-digit', minute: '2-digit' })}
-                          </div>
+                  <div key={h.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-3) 0', borderBottom: i < Math.min(activeHabits.length, 3) - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <button onClick={() => handleHabitToggle(h.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}>
+                        {isDone ? (
+                           <div style={{ background: 'var(--color-success)', borderRadius: '50%', padding: '2px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                             <Check size={14} />
+                           </div>
+                        ) : (
+                          <Circle size={20} color="var(--text-muted)" />
                         )}
-                      </div>
-                      <span
-                        className="badge"
-                        style={{ background: priorityBg[task.priority], color: priorityColors[task.priority] }}
-                      >
-                        {task.priority}
-                      </span>
+                      </button>
+                      <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{h.title}</span>
                     </div>
+                    {isDone ? <Flame size={16} color="#FF8C00" /> : <Flame size={16} color="var(--text-muted)" style={{opacity: 0.5}} />}
                   </div>
-                );
+                )
               })}
+              {activeHabits.length === 0 && <p style={{ color: 'var(--text-secondary)', padding: 'var(--space-2) 0', fontSize: 'var(--font-size-sm)' }}>No habits created yet.</p>}
             </div>
-          )}
-        </section>
+            <button 
+              onClick={() => navigate('/habits')}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', color: 'var(--color-primary)', fontWeight: '600', padding: 'var(--space-3) 0 0 0', cursor: 'pointer', alignSelf: 'flex-start', fontSize: 'var(--font-size-sm)', marginTop: 'auto' }}
+            >
+              View Habits <ChevronRight size={16} />
+            </button>
+          </div>
 
-        {/* ── Active Goals ── */}
-        {activeGoals.length > 0 && (
-          <section className="animate-fadeInUp stagger-4" style={{ marginBottom: 'var(--space-6)' }}>
-            <div className="section-header">
-              <span className="section-title">
-                <Target size={16} style={{ color: 'var(--color-secondary)' }} />
-                Active Goals
-              </span>
-              <button className="section-link" onClick={() => navigate('/goals')}>
-                View all <ArrowRight size={14} />
-              </button>
-            </div>
-            <div className="flex flex-col gap-2">
-              {activeGoals.slice(0, 3).map((goal) => (
-                <div
-                  key={goal.id}
-                  className="card card-interactive"
-                  style={{ padding: 'var(--space-4)' }}
-                  onClick={() => navigate('/goals')}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-semibold truncate" style={{ flex: 1, marginRight: 'var(--space-3)' }}>
-                      {goal.title}
-                    </span>
-                    <span className="text-sm font-bold" style={{ color: 'var(--color-primary)', flexShrink: 0 }}>
-                      {goal.progress ?? 0}%
-                    </span>
-                  </div>
-                  <div className="progress">
-                    <div
-                      className="progress-bar"
-                      style={{ width: `${goal.progress ?? 0}%` }}
-                    />
+          {/* Active Goals */}
+          <div className="card animate-fadeInUp flex-col-card stagger-3">
+            <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 'bold', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Target size={18} color="var(--color-error)" /> Active Goals
+            </h2>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+              {activeGoals.length > 0 ? activeGoals.map(g => (
+                <div key={g.id}>
+                  <p style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', marginBottom: '8px' }}>{g.title}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ flex: 1, height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ width: `${g.progress}%`, height: '100%', background: 'var(--color-primary)', borderRadius: '4px' }} />
+                    </div>
+                    <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'bold', color: 'var(--text-primary)' }}>{g.progress}%</span>
                   </div>
                 </div>
-              ))}
+              )) : (
+                 <p style={{ color: 'var(--text-secondary)' }}>No active goals right now.</p>
+              )}
             </div>
-          </section>
-        )}
+            <button 
+              onClick={() => navigate('/goals')}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', color: 'var(--color-primary)', fontWeight: '600', cursor: 'pointer', alignSelf: 'flex-start', fontSize: 'var(--font-size-sm)', marginTop: 'auto' }}
+            >
+              View Goals <ChevronRight size={16} />
+            </button>
+          </div>
 
-        {/* ── Upcoming Exams ── */}
-        {upcomingExams.length > 0 && (
-          <section className="animate-fadeInUp stagger-4" style={{ marginBottom: 'var(--space-6)' }}>
-            <div className="section-header">
-              <span className="section-title">
-                <GraduationCap size={16} style={{ color: 'var(--color-warning)' }} />
-                Upcoming Exams
-              </span>
-              <button className="section-link" onClick={() => navigate('/study')}>
-                View all <ArrowRight size={14} />
-              </button>
+          {/* Today's Study */}
+          <div className="card animate-fadeInUp flex-col-card stagger-3" style={{ position: 'relative', overflow: 'hidden' }}>
+             <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 'bold', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+               <BookOpen size={18} color="var(--color-primary)" /> Today's Study
+             </h2>
+             <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
+               <div>
+                 <p style={{ fontSize: 'var(--font-size-3xl)', fontWeight: 'bold', color: 'var(--color-primary)', lineHeight: 1, marginBottom: 'var(--space-2)' }}>
+                   {Math.floor(todayStudyTime / 60)}h {todayStudyTime % 60}m
+                 </p>
+                 <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Keep learning, keep growing.</p>
+               </div>
+               <img src="/src/assets/books_illustration.png" alt="Books" style={{ width: '80px', opacity: 0.9 }} />
+             </div>
+             <button 
+               onClick={() => navigate('/study')}
+               style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', color: 'var(--color-primary)', fontWeight: '600', padding: 'var(--space-4) 0 0 0', cursor: 'pointer', alignSelf: 'flex-start', fontSize: 'var(--font-size-sm)', marginTop: 'auto' }}
+             >
+               Continue Study <ChevronRight size={16} />
+             </button>
+          </div>
+
+          {/* Finance */}
+          <div className="card animate-fadeInUp flex-col-card stagger-4" style={{ position: 'relative' }}>
+            <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 'bold', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Wallet size={18} color="var(--color-success)" /> Finance
+            </h2>
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+              <div>
+                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginBottom: '4px' }}>Spent Today</p>
+                <p style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 'bold', color: 'var(--color-success)', lineHeight: 1, marginBottom: '8px' }}>
+                  ₹{todayExpenses}
+                </p>
+                <span style={{ background: 'var(--color-success-light)', color: 'var(--color-success)', fontSize: '10px', fontWeight: 'bold', padding: '4px 8px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  On Budget <Check size={12} />
+                </span>
+              </div>
+              {/* Mock SVG Line chart */}
+              <svg width="80" height="40" viewBox="0 0 80 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M0 30 Q 15 15 25 25 T 50 20 T 75 5" stroke="var(--color-success)" strokeWidth="2" fill="none" />
+                <path d="M0 30 Q 15 15 25 25 T 50 20 T 75 5 L 80 40 L 0 40 Z" fill="var(--color-success-light)" opacity="0.5" />
+                <circle cx="75" cy="5" r="3" fill="var(--color-success)" />
+              </svg>
             </div>
-            <div className="flex flex-col gap-2">
-              {upcomingExams.slice(0, 3).map((exam) => (
-                <div key={exam.id} className="card" style={{ padding: 'var(--space-3) var(--space-4)' }}>
-                  <div className="flex items-center gap-3">
-                    <div className="quick-action-icon" style={{ background: 'var(--color-warning-light)', color: 'var(--color-warning)', width: 36, height: 36, borderRadius: 'var(--radius-md)' }}>
-                      <AlertCircle size={16} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="list-item-title">{exam.title}</div>
-                      <div className="list-item-subtitle">
-                        <Calendar size={10} />
-                        {formatDate(exam.exam_date)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-      </div>
+            <button 
+              onClick={() => navigate('/finance')}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', color: 'var(--color-success)', fontWeight: '600', cursor: 'pointer', alignSelf: 'flex-start', fontSize: 'var(--font-size-sm)', marginTop: 'auto' }}
+            >
+              View Finance <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>      </div>
 
-      {/* ── Quick Action Modals ── */}
-
-      {/* Add Task */}
-      <Modal isOpen={showTaskModal} onClose={() => setShowTaskModal(false)} title="Add Task"
-        footer={<><button className="btn btn-secondary" onClick={() => setShowTaskModal(false)}>Cancel</button><button className="btn btn-primary" onClick={handleAddQuickTask}>Add Task</button></>}
-      >
-        <div className="input-group">
-          <label className="input-label">Task Title</label>
-          <input className="input" placeholder="What do you need to do?" value={quickTask}
-            onChange={(e) => setQuickTask(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAddQuickTask()}
-            autoFocus id="input-quick-task" />
-        </div>
-      </Modal>
-
-      {/* Add Expense */}
-      <Modal isOpen={showExpenseModal} onClose={() => setShowExpenseModal(false)} title="Add Expense"
-        footer={<><button className="btn btn-secondary" onClick={() => setShowExpenseModal(false)}>Cancel</button><button className="btn btn-primary" onClick={handleAddQuickExpense}>Add Expense</button></>}
-      >
-        <div className="input-group">
-          <label className="input-label">Amount (₹)</label>
-          <input className="input" type="number" placeholder="0.00" value={quickExpense.amount}
-            onChange={(e) => setQuickExpense({ ...quickExpense, amount: e.target.value })}
-            autoFocus id="input-quick-expense-amount" />
-        </div>
-        <div className="input-group">
-          <label className="input-label">Category</label>
-          <select className="input select" value={quickExpense.category}
-            onChange={(e) => setQuickExpense({ ...quickExpense, category: e.target.value })}
-            id="select-quick-expense-category">
-            <option value="food">🍕 Food & Dining</option>
-            <option value="travel">✈️ Travel</option>
-            <option value="education">📚 Education</option>
-            <option value="shopping">🛍️ Shopping</option>
-            <option value="other">📦 Other</option>
-          </select>
-        </div>
-        <div className="input-group">
-          <label className="input-label">Description</label>
-          <input className="input" placeholder="What was it for?" value={quickExpense.description}
-            onChange={(e) => setQuickExpense({ ...quickExpense, description: e.target.value })}
-            id="input-quick-expense-desc" />
-        </div>
-      </Modal>
-
-      {/* Add Note */}
-      <Modal isOpen={showNoteModal} onClose={() => setShowNoteModal(false)} title="Add Note"
-        footer={<><button className="btn btn-secondary" onClick={() => setShowNoteModal(false)}>Cancel</button><button className="btn btn-primary" onClick={handleAddQuickNote}>Save Note</button></>}
-      >
-        <div className="input-group">
-          <label className="input-label">Title</label>
-          <input className="input" placeholder="Note title" value={quickNote.title}
-            onChange={(e) => setQuickNote({ ...quickNote, title: e.target.value })}
-            autoFocus id="input-quick-note-title" />
-        </div>
-        <div className="input-group">
-          <label className="input-label">Content</label>
-          <textarea className="input textarea" placeholder="Write your note..."
-            value={quickNote.content}
-            onChange={(e) => setQuickNote({ ...quickNote, content: e.target.value })}
-            id="input-quick-note-content" />
-        </div>
-      </Modal>
-
-      {/* Add Idea */}
-      <Modal isOpen={showIdeaModal} onClose={() => setShowIdeaModal(false)} title="Capture Idea"
-        footer={<><button className="btn btn-secondary" onClick={() => setShowIdeaModal(false)}>Cancel</button><button className="btn btn-primary" onClick={handleAddQuickIdea}>Save Idea</button></>}
-      >
-        <div className="input-group">
-          <label className="input-label">What's your idea?</label>
-          <input className="input" placeholder="Describe your idea..." value={quickIdea.title}
-            onChange={(e) => setQuickIdea({ ...quickIdea, title: e.target.value })}
-            autoFocus id="input-quick-idea-title" />
-        </div>
-        <div className="input-group">
-          <label className="input-label">Category</label>
-          <select className="input select" value={quickIdea.category}
-            onChange={(e) => setQuickIdea({ ...quickIdea, category: e.target.value })}
-            id="select-quick-idea-category">
-            <option value="app">💡 App Idea</option>
-            <option value="business">💼 Business</option>
-            <option value="project">🚀 Project</option>
-            <option value="research">🔬 Research</option>
-          </select>
-        </div>
-      </Modal>
+      <TaskCompletionModal 
+        isOpen={!!completedTaskData} 
+        onClose={() => setCompletedTaskData(null)}
+        taskName={completedTaskData?.name || ''}
+        completedCount={completedTaskData?.completed || 0}
+        totalCount={completedTaskData?.total || 0}
+        isAllDone={completedTaskData?.allDone || false}
+      />
     </>
   );
 }

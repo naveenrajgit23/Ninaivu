@@ -54,7 +54,7 @@ export default function GoalsPage() {
       <TopBar title="Goals" subtitle={`${goals.filter((g) => g.status === 'active').length} active`} />
 
       <div className="page">
-        <div className="flex gap-2 mb-6">
+        <div className="flex flex-wrap gap-2 mb-6">
           {(['all', 'active', 'completed'] as const).map((s) => (
             <button key={s} className={`chip ${filter === s ? 'chip-active' : ''}`} onClick={() => setFilter(s)}>
               {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -63,7 +63,7 @@ export default function GoalsPage() {
         </div>
 
         {filtered.length === 0 ? (
-          <EmptyState icon={<Target size={32} />} title="No goals yet" description="Set long-term targets to stay motivated." action={<button className="btn btn-primary" onClick={() => setShowAdd(true)}>Create Goal</button>} />
+          <EmptyState icon={<Target size={32} />} title="✨ What's your next milestone?" description="Define your direction. Break it down. Make it happen." action={<button className="btn btn-primary" onClick={() => setShowAdd(true)}>Create Goal</button>} />
         ) : (
           <div className="flex flex-col gap-3">
             {filtered.map((goal) => {
@@ -71,7 +71,7 @@ export default function GoalsPage() {
               const completedTasks = linkedTasks.filter((t) => t.status === 'completed').length;
               return (
                 <div key={goal.id} className="card animate-fadeInUp">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div className="flex items-center gap-3">
                       <div className="stat-card-icon" style={{ background: goal.status === 'completed' ? 'var(--color-success-light)' : 'var(--color-primary-light)', color: goal.status === 'completed' ? 'var(--color-success)' : 'var(--color-primary)', width: 40, height: 40 }}>
                         <Target size={20} />
@@ -104,7 +104,7 @@ export default function GoalsPage() {
                   )}
 
                   {goal.status === 'active' && goal.progress < 100 && (
-                    <div className="flex items-center gap-2 mt-3">
+                    <div className="flex flex-wrap items-center gap-2 mt-3">
                       <button className="btn btn-sm btn-ghost" onClick={() => updateItem('goals', goal.id, { progress: Math.min(100, goal.progress + 10) })}>+10%</button>
                       <button className="btn btn-sm btn-ghost" onClick={() => updateItem('goals', goal.id, { progress: 100, status: 'completed' })}>Mark Complete</button>
                     </div>
