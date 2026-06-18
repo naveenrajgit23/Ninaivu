@@ -1876,7 +1876,7 @@ input, textarea, select {
 .dashboard-header-wrapper {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: var(--space-6);
 }
 
@@ -1896,7 +1896,6 @@ input, textarea, select {
   }
 
   .dashboard-header-wrapper {
-    flex-direction: column;
     gap: var(--space-4);
   }
 

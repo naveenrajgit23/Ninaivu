@@ -21,6 +21,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isDemo) {
+      setUser({
+        id: 'demo-user-id',
+        email: 'demo@ninaivu.local',
+        full_name: 'Anu'
+      } as User);
       setLoading(false);
       return;
     }
