@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  Wallet, BookOpen, Flame, ChevronRight, Circle, Check, Search, Bell, Target
+  Wallet, Flame, ChevronRight, Circle, Check, Search, Target
 } from 'lucide-react';
 import TaskCompletionModal from '../../components/ui/TaskCompletionModal';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,9 +15,8 @@ export default function DashboardPage() {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  // Modal & Notifications State
+  // Modal State
   const [completedTaskData, setCompletedTaskData] = useState<{name: string, completed: number, total: number, allDone: boolean} | null>(null);
-  const [unreadNotifications, setUnreadNotifications] = useState(3);
 
   const today = new Date().toISOString().split('T')[0];
   const greeting = getGreeting();
@@ -124,14 +123,7 @@ export default function DashboardPage() {
     }
   };
 
-  const handleNotificationClear = () => {
-    if (unreadNotifications > 0) {
-      setUnreadNotifications(0);
-      showToast('All notifications marked as read.', 'success');
-    } else {
-      showToast('No new notifications.', 'info');
-    }
-  };
+
 
   return (
     <>
@@ -151,18 +143,7 @@ export default function DashboardPage() {
               <button className="btn btn-icon" style={{ background: 'transparent', color: 'var(--text-secondary)' }}>
                 <Search size={20} />
               </button>
-              <div style={{ position: 'relative' }}>
-                <button onClick={handleNotificationClear} className="btn btn-icon" style={{ background: 'transparent', color: 'var(--text-secondary)' }}>
-                  <Bell size={20} />
-                </button>
-                {unreadNotifications > 0 && (
-                  <span style={{
-                    position: 'absolute', top: '0', right: '0', background: 'var(--color-error)', color: 'white', 
-                    fontSize: '10px', fontWeight: 'bold', width: '16px', height: '16px', borderRadius: '50%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}>{unreadNotifications}</span>
-                )}
-              </div>
+
               <div style={{
                 width: '36px', height: '36px', borderRadius: '50%', background: 'var(--color-secondary)',
                 color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold',
@@ -334,27 +315,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {/* Today's Study */}
-          <div className="card animate-fadeInUp flex-col-card stagger-3" style={{ position: 'relative', overflow: 'hidden' }}>
-             <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 'bold', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-               <BookOpen size={18} color="var(--color-primary)" /> Today's Study
-             </h2>
-             <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
-               <div>
-                 <p style={{ fontSize: 'var(--font-size-3xl)', fontWeight: 'bold', color: 'var(--color-primary)', lineHeight: 1, marginBottom: 'var(--space-2)' }}>
-                   {Math.floor(todayStudyTime / 60)}h {todayStudyTime % 60}m
-                 </p>
-                 <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Keep learning, keep growing.</p>
-               </div>
-               <img src="/src/assets/books_illustration.png" alt="Books" style={{ width: '80px', opacity: 0.9 }} />
-             </div>
-             <button 
-               onClick={() => navigate('/study')}
-               style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', color: 'var(--color-primary)', fontWeight: '600', padding: 'var(--space-4) 0 0 0', cursor: 'pointer', alignSelf: 'flex-start', fontSize: 'var(--font-size-sm)', marginTop: 'auto' }}
-             >
-               Continue Study <ChevronRight size={16} />
-             </button>
-          </div>
+
 
           {/* Finance */}
           <div className="card animate-fadeInUp flex-col-card stagger-4" style={{ position: 'relative' }}>

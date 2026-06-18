@@ -8,6 +8,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { DataProvider } from './contexts/DataContext';
+import { TimerProvider } from './contexts/TimerContext';
 
 // Layout
 import AppShell from './components/layout/AppShell';
@@ -75,7 +76,9 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <DataProvider>
-              <AppShell />
+              <TimerProvider>
+                <AppShell />
+              </TimerProvider>
             </DataProvider>
           </ProtectedRoute>
         }

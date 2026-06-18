@@ -2,80 +2,40 @@
 // நினைவு (Ninaivu) — Focus Timer Page
 // ============================================================
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect } from 'react';
 import { Play, Pause, RotateCcw, Check } from 'lucide-react';
 import TopBar from '../../components/layout/TopBar';
 import { useData } from '../../contexts/DataContext';
 import { useToast } from '../../contexts/ToastContext';
 import { formatTimer } from '../../utils/helpers';
 import { TIMER_PRESETS } from '../../utils/constants';
-import type { TimerStatus } from '../../types';
+
+import { useTimer } from '../../contexts/TimerContext';
 
 export default function FocusTimerPage() {
   const { addItem } = useData();
   const { showToast } = useToast();
 
-  const [selectedMinutes, setSelectedMinutes] = useState(25);
-  const [customMinutes, setCustomMinutes] = useState('');
-  const [remainingSeconds, setRemainingSeconds] = useState(25 * 60);
-  const [status, setStatus] = useState<TimerStatus>('idle');
-  const [startedAt, setStartedAt] = useState<string | null>(null);
+  const {
+    selectedMinutes, customMinutes, remainingSeconds, status, startedAt,
+    setSelectedMinutes, setCustomMinutes, setRemainingSeconds,
+    startTimer, pauseTimer, resetTimer, onSessionComplete
+  } = useTimer();
 
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const totalSeconds = selectedMinutes * 60;
   const progress = totalSeconds > 0 ? ((totalSeconds - remainingSeconds) / totalSeconds) : 0;
   const circumference = 2 * Math.PI * 108; // radius=108
 
-  const clearTimer = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, []);
-
   useEffect(() => {
-    return () => clearTimer();
-  }, [clearTimer]);
-
-  const startTimer = () => {
-    if (status === 'idle') {
-      setRemainingSeconds(selectedMinutes * 60);
-      setStartedAt(new Date().toISOString());
-    }
-    setStatus('running');
-
-    clearTimer();
-    intervalRef.current = setInterval(() => {
-      setRemainingSeconds((prev) => {
-        if (prev <= 1) {
-          clearTimer();
-          setStatus('idle');
-          // Save session
-          const elapsed = selectedMinutes;
-          addItem('studySessions', {
-            duration_minutes: elapsed,
-            started_at: startedAt || new Date().toISOString(),
-            ended_at: new Date().toISOString(),
-          });
-          showToast(`Session completed! ${elapsed} min focused.`, 'success');
-          return 0;
-        }
-        return prev - 1;
+    onSessionComplete.current = (elapsed, start, end) => {
+      addItem('studySessions', {
+        duration_minutes: elapsed,
+        started_at: start,
+        ended_at: end,
       });
-    }, 1000);
-  };
-
-  const pauseTimer = () => {
-    setStatus('paused');
-    clearTimer();
-  };
-
-  const resetTimer = () => {
-    clearTimer();
-    setStatus('idle');
-    setRemainingSeconds(selectedMinutes * 60);
-    setStartedAt(null);
-  };
+      showToast(`Session completed! ${elapsed} min focused.`, 'success');
+    };
+  }, [addItem, showToast, onSessionComplete]);
 
   const selectPreset = (mins: number) => {
     if (status !== 'idle') return;

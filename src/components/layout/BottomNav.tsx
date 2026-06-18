@@ -18,9 +18,9 @@ function getIcon(name: string, size = 24) {
 
 // The 5 primary items always visible
 const PRIMARY_ITEMS = [
-  { path: '/', label: 'Home', icon: 'LayoutDashboard' },
-  { path: '/tasks', label: 'Tasks', icon: 'CheckSquare' },
   { path: '/habits', label: 'Habits', icon: 'Activity' },
+  { path: '/tasks', label: 'Tasks', icon: 'CheckSquare' },
+  { path: '/', label: 'Home', icon: 'LayoutDashboard' },
   { path: '/finance', label: 'Finance', icon: 'Wallet' },
 ];
 

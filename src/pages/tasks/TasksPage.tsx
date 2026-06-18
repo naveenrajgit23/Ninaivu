@@ -23,10 +23,15 @@ export default function TasksPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
+  const getLocalDateString = () => {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  };
+
   const [form, setForm] = useState({
     title: '', description: '', type: 'general' as TaskType,
     priority: 'medium' as TaskPriority, status: 'pending' as TaskStatus,
-    due_date: '', goal_id: '',
+    due_date: getLocalDateString(), goal_id: '',
   });
 
   const filtered = useMemo(() => {
@@ -69,7 +74,7 @@ export default function TasksPage() {
   };
 
   const resetForm = () => {
-    setForm({ title: '', description: '', type: 'general', priority: 'medium', status: 'pending', due_date: '', goal_id: '' });
+    setForm({ title: '', description: '', type: 'general', priority: 'medium', status: 'pending', due_date: getLocalDateString(), goal_id: '' });
     setShowAdd(false);
     setEditId(null);
   };
