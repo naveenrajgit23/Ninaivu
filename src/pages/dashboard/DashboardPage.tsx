@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  Wallet, Flame, ChevronRight, Circle, Check, Search, Target
+  Wallet, Flame, ChevronRight, Circle, Check, Target
 } from 'lucide-react';
 import TaskCompletionModal from '../../components/ui/TaskCompletionModal';
 import { useAuth } from '../../contexts/AuthContext';
@@ -140,10 +140,6 @@ export default function DashboardPage() {
             </div>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-              <button className="btn btn-icon" style={{ background: 'transparent', color: 'var(--text-secondary)' }}>
-                <Search size={20} />
-              </button>
-
               <div style={{
                 width: '36px', height: '36px', borderRadius: '50%', background: 'var(--color-secondary)',
                 color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold',
