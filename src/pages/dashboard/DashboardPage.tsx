@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  Wallet, BookOpen, Flame, ChevronRight, Circle, Check, Search, Bell, Star, Target
+  Wallet, BookOpen, Flame, ChevronRight, Circle, Check, Search, Bell, Target
 } from 'lucide-react';
-import ProgressRing from '../../components/ui/ProgressRing';
 import TaskCompletionModal from '../../components/ui/TaskCompletionModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';

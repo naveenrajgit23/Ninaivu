@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState, useMemo } from 'react';
-import { Plus, ArrowDownRight, Users, TrendingUp, MoreHorizontal, Sprout, Trash2 } from 'lucide-react';
+import { Plus, ArrowDownRight, Users, TrendingUp, MoreHorizontal, Trash2 } from 'lucide-react';
 import TopBar from '../../components/layout/TopBar';
 import Modal from '../../components/ui/Modal';
 import { useData } from '../../contexts/DataContext';

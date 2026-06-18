@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState, useMemo } from 'react';
-import { Search, Plus, Trash2, Edit3, Calendar, Check, AlertCircle, Sparkles, Star, Clock } from 'lucide-react';
+import { Search, Plus, Trash2, Edit3, Calendar, Check, AlertCircle, Star, Clock } from 'lucide-react';
 import TopBar from '../../components/layout/TopBar';
 import Modal from '../../components/ui/Modal';
 import EmptyState from '../../components/ui/EmptyState';

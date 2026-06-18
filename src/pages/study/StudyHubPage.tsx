@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  Plus, BookOpen, FileText, Clock, Timer, Calendar, Trash2, ArrowRight, Play, CheckCircle2
+  Plus, BookOpen, FileText, Clock, Timer, Calendar, Trash2, ArrowRight, Play
 } from 'lucide-react';
 import TopBar from '../../components/layout/TopBar';
 import Modal from '../../components/ui/Modal';
