@@ -4,6 +4,7 @@ import {
   Wallet, Flame, ChevronRight, Circle, Check, Target
 } from 'lucide-react';
 import TaskCompletionModal from '../../components/ui/TaskCompletionModal';
+import ProfileAvatar from '../../components/layout/ProfileAvatar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -140,13 +141,7 @@ export default function DashboardPage() {
             </div>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-              <div style={{
-                width: '36px', height: '36px', borderRadius: '50%', background: 'var(--color-secondary)',
-                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold',
-                cursor: 'pointer'
-              }}>
-                {user?.full_name?.charAt(0).toUpperCase() || 'U'}
-              </div>
+              <ProfileAvatar />
             </div>
           </div>
 

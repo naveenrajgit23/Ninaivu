@@ -6,10 +6,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Search, Moon, Sun, Bell, Menu } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useAuth } from '../../contexts/AuthContext';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useToast } from '../../contexts/ToastContext';
-import { getInitials } from '../../utils/helpers';
+import ProfileAvatar from './ProfileAvatar';
 
 interface TopBarProps {
   title: string;
@@ -19,7 +18,6 @@ interface TopBarProps {
 
 export default function TopBar({ title, subtitle, showSearch = true }: TopBarProps) {
   const { theme, toggleTheme } = useTheme();
-  const { user } = useAuth();
   const { toggleSidebar } = useLayout();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -94,18 +92,7 @@ export default function TopBar({ title, subtitle, showSearch = true }: TopBarPro
           )}
         </div>
 
-        <div
-          className="avatar avatar-sm avatar-interactive"
-          id="user-avatar"
-          onClick={() => navigate('/settings')}
-          style={{ cursor: 'pointer' }}
-          role="button"
-          aria-label="Go to settings"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && navigate('/settings')}
-        >
-          {user?.full_name ? getInitials(user.full_name) : '?'}
-        </div>
+        <ProfileAvatar />
       </div>
     </header>
   );
